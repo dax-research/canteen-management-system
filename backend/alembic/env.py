@@ -4,7 +4,7 @@ from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 from app.db.database import Base
 from app.db.database import settings
-from app.models.user import User
+import app.models
 from alembic import context
 
 # this is the Alembic Config object, which provides
