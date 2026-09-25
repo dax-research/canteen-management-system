@@ -1,60 +1,79 @@
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+from fastapi import Depends
+
+from app.core.security import hash_password, verify_password
+from app.db.database import get_db
+from app.models.user import User
+from app.core.jwt import create_access_token
+
+
+
 from fastapi import APIRouter, HTTPException, status
-from typing import Dict
 from app.schemas.auth import UserCreate, UserLogin, TokenResponse, UserResponse
-import uuid
+
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
-# In-memory mock database for users
-# Key: email, Value: User Dict
-mock_users_db: Dict[str, dict] = {}
 
-@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-def register_user(user: UserCreate):
-    if user.email in mock_users_db:
+
+@router.post(
+    "/register",
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def register_user(user: UserCreate, db: Session = Depends(get_db)):
+    existing_user = db.scalar(
+        select(User).where(User.email == user.email)
+    )
+
+    if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+            detail="Email already registered",
         )
-    
-    user_id = str(uuid.uuid4())
-    # In a real app, password must be hashed. For this mock, we store it plain.
-    new_user = {
-        "id": user_id,
-        "name": user.name,
-        "email": user.email,
-        "password": user.password
-    }
-    
-    mock_users_db[user.email] = new_user
-    
-    return UserResponse(
-        id=user_id,
+
+    new_user = User(
         name=user.name,
-        email=user.email
+        email=user.email,
+        password=hash_password(user.password),
+    )
+
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    return UserResponse(
+        id=new_user.id,
+        name=new_user.name,
+        email=new_user.email,
     )
 
 
 @router.post("/login", response_model=TokenResponse)
-def login_user(user: UserLogin):
-    db_user = mock_users_db.get(user.email)
-    
-    if not db_user or db_user["password"] != user.password:
+def login_user(user: UserLogin, db: Session = Depends(get_db)):
+    db_user = db.scalar(
+        select(User).where(User.email == user.email)
+    )
+
+    if not db_user or not verify_password(
+        user.password,
+        db_user.password,
+    ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password"
+            detail="Invalid email or password",
         )
-        
-    # Generate a mock token
-    access_token = f"mock_token_{uuid.uuid4().hex}"
-    
+
+    access_token = create_access_token(db_user.id)
+
     return TokenResponse(
         access_token=access_token,
         user=UserResponse(
-            id=db_user["id"],
-            name=db_user["name"],
-            email=db_user["email"]
-        )
+            id=db_user.id,
+            name=db_user.name,
+            email=db_user.email,
+        ),
     )
 
 
