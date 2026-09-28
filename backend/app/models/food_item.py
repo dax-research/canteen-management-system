@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Numeric, String
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Numeric, String, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
@@ -15,6 +15,10 @@ class FoodItem(Base):
         CheckConstraint(
             "price >= 0",
             name="ck_food_items_price_non_negative",
+        ),
+        CheckConstraint(
+            "stock >= 0",
+            name="ck_food_items_stock_non_negative",
         ),
     )
 
@@ -32,6 +36,7 @@ class FoodItem(Base):
     name: Mapped[str] = mapped_column(String(150), nullable=False)
     description: Mapped[str | None] = mapped_column(String(500), nullable=True)
     price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    stock: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     is_available: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(

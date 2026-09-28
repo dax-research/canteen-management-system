@@ -51,10 +51,17 @@ def place_order(
             raise HTTPException(status_code=400, detail=f"Food item '{food_item.name}' is not available")
         if not food_item.category.is_active:
             raise HTTPException(status_code=400, detail=f"Category for '{food_item.name}' is not active")
+        if item.quantity > food_item.stock:
+            raise HTTPException(status_code=400, detail=f"Requested quantity for '{food_item.name}' exceeds available stock")
 
         unit_price = food_item.price
         subtotal = unit_price * item.quantity
         total_amount += subtotal
+
+        # Deduct stock
+        food_item.stock -= item.quantity
+        if food_item.stock == 0:
+            food_item.is_available = False
 
         order_item = OrderItem(
             food_item_id=food_item.id,

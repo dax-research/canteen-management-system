@@ -55,7 +55,7 @@ def test_api():
     db.commit()
     db.refresh(cat)
 
-    food = FoodItem(category_id=cat.id, name="Test Food", price=10.50, is_available=True)
+    food = FoodItem(category_id=cat.id, name="Test Food", price=10.50, is_available=True, stock=100)
     db.add(food)
     db.commit()
     db.refresh(food)
