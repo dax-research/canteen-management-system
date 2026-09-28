@@ -1,10 +1,55 @@
 import 'package:flutter/material.dart';
 import '../models/food_item.dart';
+import '../services/cart_service.dart';
 
-class FoodItemCard extends StatelessWidget {
+class FoodItemCard extends StatefulWidget {
   final FoodItem foodItem;
 
   const FoodItemCard({super.key, required this.foodItem});
+
+  @override
+  State<FoodItemCard> createState() => _FoodItemCardState();
+}
+
+class _FoodItemCardState extends State<FoodItemCard> {
+  bool _isAdding = false;
+
+  Future<void> _addToCart() async {
+    if (_isAdding || !widget.foodItem.isAvailable) return;
+
+    setState(() {
+      _isAdding = true;
+    });
+
+    try {
+      await CartService.addItem(widget.foodItem.id, 1);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Item added to cart'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isAdding = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -14,7 +59,7 @@ class FoodItemCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Opacity(
-        opacity: foodItem.isAvailable ? 1.0 : 0.5,
+        opacity: widget.foodItem.isAvailable ? 1.0 : 0.5,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -22,14 +67,18 @@ class FoodItemCard extends StatelessWidget {
             Container(
               width: 100,
               height: 100,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade200,
-              ),
-              child: foodItem.imageUrl != null && foodItem.imageUrl!.isNotEmpty
+              decoration: BoxDecoration(color: Colors.grey.shade200),
+              child:
+                  widget.foodItem.imageUrl != null &&
+                      widget.foodItem.imageUrl!.isNotEmpty
                   ? Image.network(
-                      foodItem.imageUrl!,
+                      widget.foodItem.imageUrl!,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.fastfood, color: Colors.grey, size: 40),
+                      errorBuilder: (context, error, stackTrace) => const Icon(
+                        Icons.fastfood,
+                        color: Colors.grey,
+                        size: 40,
+                      ),
                     )
                   : const Icon(Icons.fastfood, color: Colors.grey, size: 40),
             ),
@@ -45,7 +94,7 @@ class FoodItemCard extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            foodItem.name,
+                            widget.foodItem.name,
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -56,7 +105,7 @@ class FoodItemCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          '₹${foodItem.price.toStringAsFixed(2)}',
+                          '₹${widget.foodItem.price.toStringAsFixed(2)}',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -65,10 +114,11 @@ class FoodItemCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    if (foodItem.description != null && foodItem.description!.isNotEmpty) ...[
+                    if (widget.foodItem.description != null &&
+                        widget.foodItem.description!.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(
-                        foodItem.description!,
+                        widget.foodItem.description!,
                         style: TextStyle(
                           fontSize: 14,
                           color: Colors.grey.shade600,
@@ -78,24 +128,53 @@ class FoodItemCard extends StatelessWidget {
                       ),
                     ],
                     const SizedBox(height: 8),
-                    if (!foodItem.isAvailable)
-                      const Text(
-                        'Currently Unavailable',
-                        style: TextStyle(
-                          color: Colors.red,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      )
-                    else
-                      Text(
-                        foodItem.categoryName,
-                        style: const TextStyle(
-                          color: Colors.grey,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        if (!widget.foodItem.isAvailable)
+                          const Text(
+                            'Currently Unavailable',
+                            style: TextStyle(
+                              color: Colors.red,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          )
+                        else
+                          Text(
+                            widget.foodItem.categoryName,
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        if (widget.foodItem.isAvailable)
+                          SizedBox(
+                            height: 32,
+                            child: ElevatedButton(
+                              onPressed: _isAdding ? null : _addToCart,
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                              ),
+                              child: _isAdding
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Text('Add'),
+                            ),
+                          ),
+                      ],
+                    ),
                   ],
                 ),
               ),
