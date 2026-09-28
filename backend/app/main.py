@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import auth, menu, cart
+from app.routers import auth, menu, cart, order
 
 app = FastAPI(
     title="Canteen Management System API",
@@ -20,6 +20,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(menu.router)
 app.include_router(cart.router)
+app.include_router(order.router)
 
 @app.get("/")
 def root():
