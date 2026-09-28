@@ -7,6 +7,7 @@ import '../../services/menu_service.dart';
 import '../../widgets/food_item_card.dart';
 import '../auth/login_screen.dart';
 import '../cart/cart_screen.dart';
+import '../orders/orders_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -140,6 +141,15 @@ class _HomeScreenState extends State<HomeScreen> {
         foregroundColor: Colors.black,
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.receipt_long),
+            onPressed: () {
+              Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const OrdersScreen()));
+            },
+            tooltip: 'Order History',
+          ),
           IconButton(
             icon: const Icon(Icons.shopping_cart),
             onPressed: () {

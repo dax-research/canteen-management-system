@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../models/cart.dart';
 import '../../services/cart_service.dart';
+import '../../services/order_service.dart';
+import '../orders/order_details_screen.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -152,6 +154,52 @@ class _CartScreenState extends State<CartScreen> {
         setState(() {
           _cart = cart;
         });
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop(); // dismiss loading
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _checkout() async {
+    if (!mounted || _cart == null || _cart!.items.isEmpty) return;
+
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      final order = await OrderService.placeOrder();
+
+      if (mounted) {
+        Navigator.of(context).pop(); // dismiss loading
+
+        // Optimistically clear local cart state after successful order placement.
+        setState(() {
+          _cart = Cart(id: _cart!.id, items: [], total: 0.0);
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Order placed successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => OrderDetailsScreen(orderId: order.id),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -444,14 +492,7 @@ class _CartScreenState extends State<CartScreen> {
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
-                onPressed: () {
-                  // Checkout flow to be implemented later
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Checkout feature coming soon!'),
-                    ),
-                  );
-                },
+                onPressed: _checkout,
                 style: ElevatedButton.styleFrom(
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),

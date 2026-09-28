@@ -22,4 +22,6 @@ class ApiConstants {
 
   static String get cart => '$baseUrl/cart';
   static String get cartItems => '$baseUrl/cart/items';
+
+  static String get orders => '$baseUrl/orders';
 }
