@@ -1,17 +1,26 @@
 from decimal import Decimal
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc
 
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, get_staff_user
 from app.db.database import get_db
 from app.models.cart import Cart, CartItem
 from app.models.order import Order, OrderItem
 from app.models.user import User
 from app.models.food_item import FoodItem
-from app.schemas.order import OrderResponse
+from app.schemas.order import OrderResponse, OrderStatusUpdate, OrderStatus
+
+VALID_TRANSITIONS = {
+    "PLACED": {"ACCEPTED", "CANCELLED"},
+    "ACCEPTED": {"PREPARING", "CANCELLED"},
+    "PREPARING": {"READY", "CANCELLED"},
+    "READY": {"COMPLETED"},
+    "COMPLETED": set(),
+    "CANCELLED": set(),
+}
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
 
@@ -89,6 +98,73 @@ def get_orders(
         .all()
     )
     return orders
+
+
+@router.get("/staff", response_model=List[OrderResponse])
+def get_staff_orders(
+    status_filter: OrderStatus | None = Query(default=None, alias="status"),
+    db: Session = Depends(get_db),
+    staff_user: User = Depends(get_staff_user),
+):
+    query = db.query(Order).options(joinedload(Order.items))
+    if status_filter:
+        query = query.filter(Order.status == status_filter)
+
+    orders = query.order_by(desc(Order.created_at)).all()
+    return orders
+
+@router.get("/staff/{order_id}", response_model=OrderResponse)
+def get_staff_order(
+    order_id: str,
+    db: Session = Depends(get_db),
+    staff_user: User = Depends(get_staff_user),
+):
+    order = (
+        db.query(Order)
+        .options(joinedload(Order.items))
+        .filter(Order.id == order_id)
+        .first()
+    )
+
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    return order
+
+@router.patch("/staff/{order_id}/status", response_model=OrderResponse)
+def update_order_status(
+    order_id: str,
+    status_update: OrderStatusUpdate,
+    db: Session = Depends(get_db),
+    staff_user: User = Depends(get_staff_user),
+):
+    order = (
+        db.query(Order)
+        .options(joinedload(Order.items))
+        .filter(Order.id == order_id)
+        .first()
+    )
+
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    current_status = order.status
+    new_status = status_update.status
+
+    if current_status == new_status:
+        return order
+
+    allowed_next = VALID_TRANSITIONS.get(current_status, set())
+    if new_status not in allowed_next:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid transition from {current_status} to {new_status}"
+        )
+
+    order.status = new_status
+    db.commit()
+    db.refresh(order)
+    return order
 
 
 @router.get("/{order_id}", response_model=OrderResponse)
