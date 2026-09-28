@@ -32,6 +32,13 @@ class User(Base):
         nullable=False,
     )
 
+    role: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="CUSTOMER",
+        server_default="CUSTOMER",
+    )
+
     orders: Mapped[list["Order"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",

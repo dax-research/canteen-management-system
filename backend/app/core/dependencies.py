@@ -50,3 +50,12 @@ def get_current_user(
         )
 
     return user
+
+def get_staff_user(current_user: User = Depends(get_current_user)) -> User:
+    """Validate that the authenticated user is STAFF or ADMIN."""
+    if current_user.role not in ("STAFF", "ADMIN"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions",
+        )
+    return current_user

@@ -2,7 +2,16 @@ from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
+
+from typing import Literal
+
+OrderStatus = Literal[
+    "PLACED", "ACCEPTED", "PREPARING", "READY", "COMPLETED", "CANCELLED"
+]
+
+class OrderStatusUpdate(BaseModel):
+    status: OrderStatus
 
 
 class OrderItemResponse(BaseModel):
