@@ -12,7 +12,7 @@ class AuthService {
         'email': email,
         'password': password,
       });
-      
+
       final token = response['access_token'];
       if (token != null) {
         final prefs = await SharedPreferences.getInstance();
@@ -26,7 +26,11 @@ class AuthService {
   }
 
   // Register
-  static Future<bool> register(String name, String email, String password) async {
+  static Future<bool> register(
+    String name,
+    String email,
+    String password,
+  ) async {
     try {
       await ApiService.post(ApiConstants.register, {
         'name': name,
@@ -56,5 +60,11 @@ class AuthService {
   static Future<bool> isAuthenticated() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.containsKey(_tokenKey);
+  }
+
+  // Get Token
+  static Future<String?> getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_tokenKey);
   }
 }

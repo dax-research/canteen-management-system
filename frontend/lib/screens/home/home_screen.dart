@@ -6,6 +6,7 @@ import '../../services/auth_service.dart';
 import '../../services/menu_service.dart';
 import '../../widgets/food_item_card.dart';
 import '../auth/login_screen.dart';
+import '../cart/cart_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -114,7 +115,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _onCategorySelected(String? categoryId) {
     if (_selectedCategoryId == categoryId) return;
-    
+
     setState(() {
       _selectedCategoryId = categoryId;
     });
@@ -124,9 +125,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _logout(BuildContext context) async {
     await AuthService.logout();
     if (context.mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-      );
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: (_) => const LoginScreen()));
     }
   }
 
@@ -140,19 +141,30 @@ class _HomeScreenState extends State<HomeScreen> {
         elevation: 0,
         actions: [
           IconButton(
+            icon: const Icon(Icons.shopping_cart),
+            onPressed: () {
+              Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const CartScreen())).then((
+                _,
+              ) {
+                // Optionally refresh if cart state matters on home screen, but not strictly needed here
+              });
+            },
+            tooltip: 'View Cart',
+          ),
+          IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () => _logout(context),
             tooltip: 'Logout',
-          )
+          ),
         ],
       ),
       body: Column(
         children: [
           _buildSearchBar(),
           _buildCategorySelector(),
-          Expanded(
-            child: _buildContent(),
-          ),
+          Expanded(child: _buildContent()),
         ],
       ),
     );
@@ -167,9 +179,7 @@ class _HomeScreenState extends State<HomeScreen> {
         decoration: InputDecoration(
           hintText: 'Search food...',
           prefixIcon: const Icon(Icons.search),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           contentPadding: const EdgeInsets.symmetric(vertical: 0),
         ),
       ),
@@ -188,7 +198,9 @@ class _HomeScreenState extends State<HomeScreen> {
         itemBuilder: (context, index) {
           final isAll = index == 0;
           final category = isAll ? null : _categories[index - 1];
-          final isSelected = isAll ? _selectedCategoryId == null : _selectedCategoryId == category!.id;
+          final isSelected = isAll
+              ? _selectedCategoryId == null
+              : _selectedCategoryId == category!.id;
 
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
