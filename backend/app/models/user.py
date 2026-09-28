@@ -1,7 +1,7 @@
 import uuid
 
 from sqlalchemy import String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
 
@@ -30,4 +30,9 @@ class User(Base):
     password: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
+    )
+
+    orders: Mapped[list["Order"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
     )
