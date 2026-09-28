@@ -69,6 +69,7 @@ def get_food_items(
                 name=food.name,
                 description=food.description,
                 price=float(food.price),
+                stock=food.stock,
                 image_url=food.image_url,
                 is_available=food.is_available,
             )

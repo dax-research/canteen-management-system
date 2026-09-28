@@ -81,10 +81,10 @@ def test_api():
         category_ids.extend([cat1.id, cat2.id])
 
         # Create test food items
-        food1 = FoodItem(category_id=cat1.id, name="Test Pizza", price=12.50, is_available=True)
-        food2 = FoodItem(category_id=cat1.id, name="Test Burger", price=8.00, is_available=True)
-        food3 = FoodItem(category_id=cat1.id, name="Test Salad", price=5.00, is_available=True)
-        food4 = FoodItem(category_id=cat2.id, name="Test Soda", price=2.00, is_available=True)
+        food1 = FoodItem(category_id=cat1.id, name="Test Pizza", price=12.50, is_available=True, stock=100)
+        food2 = FoodItem(category_id=cat1.id, name="Test Burger", price=8.00, is_available=True, stock=100)
+        food3 = FoodItem(category_id=cat1.id, name="Test Salad", price=5.00, is_available=True, stock=100)
+        food4 = FoodItem(category_id=cat2.id, name="Test Soda", price=2.00, is_available=True, stock=100)
 
         db.add_all([food1, food2, food3, food4])
         db.commit()

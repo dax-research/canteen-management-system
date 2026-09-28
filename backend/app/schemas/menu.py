@@ -17,6 +17,7 @@ class FoodItemResponse(BaseModel):
     name: str
     description: Optional[str] = None
     price: float
+    stock: int
     image_url: Optional[str] = None
     is_available: bool
 
