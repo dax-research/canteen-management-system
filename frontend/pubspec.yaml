@@ -38,6 +38,21 @@ dependencies:
   shared_preferences: ^2.5.5
   intl: ^0.20.3
 
+  # State management
+  provider: ^6.1.5
+
+  # Declarative routing
+  go_router: ^17.5.0
+
+  # Image caching
+  cached_network_image: ^3.4.1
+
+  # Typography
+  google_fonts: ^8.2.1
+
+  # Loading skeleton animations
+  shimmer: ^3.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

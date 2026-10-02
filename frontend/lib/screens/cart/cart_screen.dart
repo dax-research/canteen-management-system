@@ -1,215 +1,110 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../core/routing/app_router.dart';
+import '../../core/theme/app_colors.dart';
 import '../../models/cart.dart';
 import '../../services/cart_service.dart';
 import '../../services/order_service.dart';
-import '../orders/order_details_screen.dart';
+import '../../widgets/app_network_image.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
-
   @override
   State<CartScreen> createState() => _CartScreenState();
 }
 
 class _CartScreenState extends State<CartScreen> {
   Cart? _cart;
-  bool _isLoading = true;
-  String? _errorMessage;
+  bool _loading = true;
+  bool _mutating = false;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _fetchCart();
+    _fetch();
   }
 
-  Future<void> _fetchCart() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
+  Future<void> _fetch() async {
+    setState(() { _loading = true; _error = null; });
     try {
-      final cart = await CartService.getCart();
-      if (mounted) {
-        setState(() {
-          _cart = cart;
-          _isLoading = false;
-        });
-      }
+      final c = await CartService.getCart();
+      if (mounted) setState(() { _cart = c; _loading = false; });
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = e.toString().replaceAll('Exception: ', '');
-          _isLoading = false;
+          _error = e.toString().replaceAll('Exception: ', '');
+          _loading = false;
         });
       }
     }
   }
 
-  Future<void> _updateQuantity(
-    String cartItemId,
-    int currentQuantity,
-    int change,
-  ) async {
-    final newQuantity = currentQuantity + change;
-
-    if (newQuantity < 1) {
-      _removeItem(cartItemId);
-      return;
-    }
-
+  Future<void> _mutate(Future<Cart> Function() fn) async {
+    if (_mutating) return;
+    setState(() => _mutating = true);
     try {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
-      );
-
-      final cart = await CartService.updateItem(cartItemId, newQuantity);
-
-      if (mounted) {
-        Navigator.of(context).pop(); // dismiss loading
-        setState(() {
-          _cart = cart;
-        });
-      }
+      final c = await fn();
+      if (mounted) setState(() { _cart = c; _mutating = false; });
     } catch (e) {
       if (mounted) {
-        Navigator.of(context).pop(); // dismiss loading
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString().replaceAll('Exception: ', '')),
-            backgroundColor: Colors.red,
-          ),
-        );
+        setState(() => _mutating = false);
+        _snack(e.toString().replaceAll('Exception: ', ''), error: true);
       }
     }
   }
 
-  Future<void> _removeItem(String cartItemId) async {
-    try {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
-      );
-
-      final cart = await CartService.removeItem(cartItemId);
-
-      if (mounted) {
-        Navigator.of(context).pop(); // dismiss loading
-        setState(() {
-          _cart = cart;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        Navigator.of(context).pop(); // dismiss loading
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString().replaceAll('Exception: ', '')),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
+  void _snack(String msg, {bool error = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: error ? AppColors.error : AppColors.primaryDark,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    ));
   }
 
   Future<void> _clearCart() async {
-    final confirm = await showDialog<bool>(
+    final ok = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Clear Cart'),
-        content: const Text(
-          'Are you sure you want to remove all items from your cart?',
-        ),
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: AppColors.surface,
+        title: const Text('Clear cart?',
+            style: TextStyle(
+                fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+        content: Text('All items will be removed.',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Clear'),
           ),
         ],
       ),
     );
-
-    if (confirm != true) return;
-    if (!mounted) return;
-
-    try {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
-      );
-
-      final cart = await CartService.clearCart();
-
-      if (mounted) {
-        Navigator.of(context).pop(); // dismiss loading
-        setState(() {
-          _cart = cart;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        Navigator.of(context).pop(); // dismiss loading
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString().replaceAll('Exception: ', '')),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
+    if (ok == true) await _mutate(CartService.clearCart);
   }
 
   Future<void> _checkout() async {
-    if (!mounted || _cart == null || _cart!.items.isEmpty) return;
-
+    if (_cart == null || _cart!.items.isEmpty || _mutating) return;
+    setState(() => _mutating = true);
     try {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
-      );
-
       final order = await OrderService.placeOrder();
-
       if (mounted) {
-        Navigator.of(context).pop(); // dismiss loading
-
-        // Optimistically clear local cart state after successful order placement.
         setState(() {
           _cart = Cart(id: _cart!.id, items: [], total: 0.0);
+          _mutating = false;
         });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Order placed successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => OrderDetailsScreen(orderId: order.id),
-          ),
-        );
+        context.push('${AppPaths.orders}/${order.id}');
       }
     } catch (e) {
       if (mounted) {
-        Navigator.of(context).pop(); // dismiss loading
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString().replaceAll('Exception: ', '')),
-            backgroundColor: Colors.red,
-          ),
-        );
+        setState(() => _mutating = false);
+        _snack(e.toString().replaceAll('Exception: ', ''), error: true);
       }
     }
   }
@@ -217,296 +112,370 @@ class _CartScreenState extends State<CartScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('My Cart'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
+        automaticallyImplyLeading: false,
+        backgroundColor: AppColors.background,
         actions: [
           if (_cart != null && _cart!.items.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.delete_sweep),
-              onPressed: _clearCart,
-              tooltip: 'Clear Cart',
+              icon: const Icon(Icons.delete_sweep_rounded,
+                  color: AppColors.error),
+              onPressed: _mutating ? null : _clearCart,
             ),
         ],
       ),
-      body: _buildBody(),
+      body: _body(),
     );
   }
 
-  Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+  Widget _body() {
+    if (_loading) {
+      return const Center(
+          child: CircularProgressIndicator(color: AppColors.primary));
     }
-
-    if (_errorMessage != null) {
+    if (_error != null) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, color: Colors.red, size: 60),
-            const SizedBox(height: 16),
-            Text(
-              _errorMessage!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 16, color: Colors.grey),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(onPressed: _fetchCart, child: const Text('Retry')),
-          ],
-        ),
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          const Icon(Icons.wifi_off_rounded, size: 56, color: AppColors.textHint),
+          const SizedBox(height: 12),
+          Text('Could not load cart',
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary)),
+          const SizedBox(height: 20),
+          ElevatedButton.icon(
+            onPressed: _fetch,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Retry'),
+          ),
+        ]),
       );
     }
-
     if (_cart == null || _cart!.items.isEmpty) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.shopping_cart_outlined,
-              color: Colors.grey.shade400,
-              size: 80,
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Your cart is empty',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Looks like you haven\'t added any items yet.',
-              style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('Browse Menu'),
-            ),
-          ],
-        ),
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Container(
+            width: 96,
+            height: 96,
+            decoration: const BoxDecoration(
+                color: AppColors.primaryLight, shape: BoxShape.circle),
+            child: const Icon(Icons.shopping_bag_outlined,
+                size: 46, color: AppColors.primary),
+          ),
+          const SizedBox(height: 18),
+          const Text('Your cart is empty',
+              style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary)),
+          const SizedBox(height: 6),
+          Text('Add some items from the menu',
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () => context.go(AppPaths.home),
+            icon: const Icon(Icons.restaurant_menu_rounded),
+            label: const Text('Browse Menu'),
+          ),
+        ]),
       );
     }
 
-    return Column(
-      children: [
+    return Stack(children: [
+      Column(children: [
+        if (_mutating)
+          const LinearProgressIndicator(
+              minHeight: 2,
+              color: AppColors.primary,
+              backgroundColor: AppColors.primaryLight),
         Expanded(
           child: ListView.builder(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
             itemCount: _cart!.items.length,
-            itemBuilder: (context, index) {
-              final item = _cart!.items[index];
-              return _buildCartItem(item);
-            },
+            itemBuilder: (_, i) => _CartTile(
+              item: _cart!.items[i],
+              disabled: _mutating,
+              onMinus: (id, qty) => qty <= 1
+                  ? _mutate(() => CartService.removeItem(id))
+                  : _mutate(() => CartService.updateItem(id, qty - 1)),
+              onPlus: (id, qty) =>
+                  _mutate(() => CartService.updateItem(id, qty + 1)),
+              onRemove: (id) => _mutate(() => CartService.removeItem(id)),
+            ),
           ),
         ),
-        _buildCartSummary(),
-      ],
-    );
-  }
-
-  Widget _buildCartItem(CartItem item) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Opacity(
-        opacity: item.isAvailable ? 1.0 : 0.5,
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Image Section
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: item.imageUrl != null && item.imageUrl!.isNotEmpty
-                    ? Image.network(
-                        item.imageUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const Icon(Icons.fastfood, color: Colors.grey),
-                      )
-                    : const Icon(Icons.fastfood, color: Colors.grey),
-              ),
-              const SizedBox(width: 12),
-              // Details Section
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            item.name,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        IconButton(
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          icon: const Icon(Icons.close, color: Colors.grey),
-                          onPressed: () => _removeItem(item.id),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '₹${item.unitPrice.toStringAsFixed(2)}',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey.shade700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    if (!item.isAvailable)
-                      const Text(
-                        'Currently Unavailable',
-                        style: TextStyle(
-                          color: Colors.red,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      )
-                    else
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Container(
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey.shade300),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.remove, size: 16),
-                                  onPressed: () => _updateQuantity(
-                                    item.id,
-                                    item.quantity,
-                                    -1,
-                                  ),
-                                  constraints: const BoxConstraints(
-                                    minWidth: 32,
-                                    minHeight: 32,
-                                  ),
-                                  padding: EdgeInsets.zero,
-                                ),
-                                Text(
-                                  '${item.quantity}',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.add, size: 16),
-                                  onPressed: () => _updateQuantity(
-                                    item.id,
-                                    item.quantity,
-                                    1,
-                                  ),
-                                  constraints: const BoxConstraints(
-                                    minWidth: 32,
-                                    minHeight: 32,
-                                  ),
-                                  padding: EdgeInsets.zero,
-                                ),
-                              ],
-                            ),
-                          ),
-                          Text(
-                            '₹${item.subtotal.toStringAsFixed(2)}',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                          ),
-                        ],
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+        _CheckoutBar(
+          total: _cart!.total,
+          count: _cart!.items.fold(0, (s, i) => s + i.quantity),
+          loading: _mutating,
+          onCheckout: _checkout,
         ),
-      ),
-    );
+      ]),
+    ]);
   }
+}
 
-  Widget _buildCartSummary() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.2),
-            spreadRadius: 1,
-            blurRadius: 10,
-            offset: const Offset(0, -3),
-          ),
-        ],
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Total Amount:',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  '₹${_cart!.total.toStringAsFixed(2)}',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _checkout,
-                style: ElevatedButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text(
-                  'Proceed to Checkout',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
+// ─────────────────────────────────────────────────────────────────────────────
+class _CartTile extends StatelessWidget {
+  const _CartTile({
+    required this.item,
+    required this.disabled,
+    required this.onMinus,
+    required this.onPlus,
+    required this.onRemove,
+  });
+
+  final CartItem item;
+  final bool disabled;
+  final void Function(String, int) onMinus;
+  final void Function(String, int) onPlus;
+  final void Function(String) onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: item.isAvailable ? 1.0 : 0.5,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: const [
+            BoxShadow(
+                color: Color(0x0A2C1810),
+                blurRadius: 10,
+                offset: Offset(0, 3))
           ],
         ),
+        child: Row(children: [
+          // Image
+          ClipRRect(
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(20),
+              bottomLeft: Radius.circular(20),
+            ),
+            child: AppNetworkImage(
+              imageUrl: item.imageUrl,
+              width: 90,
+              height: 90,
+              fit: BoxFit.cover,
+              borderRadius: BorderRadius.zero,
+              fallbackIcon: Icons.fastfood_rounded,
+              fallbackIconSize: 26,
+            ),
+          ),
+          // Info
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Expanded(
+                        child: Text(item.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary)),
+                      ),
+                      GestureDetector(
+                        onTap: disabled ? null : () => onRemove(item.id),
+                        child: const Icon(Icons.close_rounded,
+                            size: 17, color: AppColors.textHint),
+                      ),
+                    ]),
+                    const SizedBox(height: 3),
+                    Text('₹${item.unitPrice.toStringAsFixed(2)} each',
+                        style: const TextStyle(
+                            fontSize: 11, color: AppColors.textSecondary)),
+                    if (!item.isAvailable)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4),
+                        child: Text('Currently unavailable',
+                            style: TextStyle(
+                                color: AppColors.error,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600)),
+                      )
+                    else ...[
+                      const SizedBox(height: 8),
+                      Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _Stepper(
+                              qty: item.quantity,
+                              onMinus: disabled
+                                  ? null
+                                  : () => onMinus(item.id, item.quantity),
+                              onPlus: disabled
+                                  ? null
+                                  : () => onPlus(item.id, item.quantity),
+                            ),
+                            Text('₹${item.subtotal.toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.primary)),
+                          ]),
+                    ],
+                  ]),
+            ),
+          ),
+        ]),
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+class _Stepper extends StatelessWidget {
+  const _Stepper(
+      {required this.qty, required this.onMinus, required this.onPlus});
+  final int qty;
+  final VoidCallback? onMinus;
+  final VoidCallback? onPlus;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceVariant,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        _Btn(icon: Icons.remove_rounded, onTap: onMinus),
+        SizedBox(
+          width: 30,
+          child: Text('$qty',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary)),
+        ),
+        _Btn(icon: Icons.add_rounded, onTap: onPlus),
+      ]),
+    );
+  }
+}
+
+class _Btn extends StatelessWidget {
+  const _Btn({required this.icon, required this.onTap});
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 30,
+        height: 30,
+        decoration: BoxDecoration(
+          color:
+              onTap != null ? AppColors.primary : AppColors.shimmerBase,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, size: 15, color: Colors.white),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+class _CheckoutBar extends StatelessWidget {
+  const _CheckoutBar({
+    required this.total,
+    required this.count,
+    required this.loading,
+    required this.onCheckout,
+  });
+  final double total;
+  final int count;
+  final bool loading;
+  final VoidCallback onCheckout;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+          20, 16, 20, MediaQuery.of(context).padding.bottom + 16),
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        borderRadius:
+            BorderRadius.vertical(top: Radius.circular(28)),
+        boxShadow: [
+          BoxShadow(
+              color: Color(0x18000000),
+              blurRadius: 24,
+              offset: Offset(0, -6))
+        ],
+      ),
+      child: Column(children: [
+        // Drag handle
+        Container(
+          width: 36,
+          height: 4,
+          margin: const EdgeInsets.only(bottom: 14),
+          decoration: BoxDecoration(
+            color: AppColors.divider,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('$count item${count != 1 ? 's' : ''}',
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.textSecondary)),
+            const SizedBox(height: 2),
+            const Text('Total Amount',
+                style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary)),
+          ]),
+          Text('₹${total.toStringAsFixed(2)}',
+              style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.primary)),
+        ]),
+        const SizedBox(height: 14),
+        SizedBox(
+          width: double.infinity,
+          height: 54,
+          child: ElevatedButton(
+            onPressed: loading ? null : onCheckout,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryDark,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+            ),
+            child: loading
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2.5))
+                : const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.bolt_rounded, size: 20),
+                      SizedBox(width: 6),
+                      Text('Place Order',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w700)),
+                    ],
+                  ),
+          ),
+        ),
+      ]),
     );
   }
 }

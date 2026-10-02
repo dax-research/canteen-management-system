@@ -1,47 +1,41 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import '../../core/theme/app_colors.dart';
 import '../../models/order.dart';
 import '../../services/order_service.dart';
 
 class OrderDetailsScreen extends StatefulWidget {
-  final String orderId;
-
   const OrderDetailsScreen({super.key, required this.orderId});
-
+  final String orderId;
   @override
   State<OrderDetailsScreen> createState() => _OrderDetailsScreenState();
 }
 
 class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   Order? _order;
-  bool _isLoading = true;
-  String? _errorMessage;
+  bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _fetchOrder();
+    _fetch();
   }
 
-  Future<void> _fetchOrder() async {
+  Future<void> _fetch() async {
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
+      _loading = true;
+      _error = null;
     });
-
     try {
-      final order = await OrderService.getOrder(widget.orderId);
+      final o = await OrderService.getOrder(widget.orderId);
       if (mounted) {
-        setState(() {
-          _order = order;
-          _isLoading = false;
-        });
+        setState(() { _order = o; _loading = false; });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = e.toString().replaceAll('Exception: ', '');
-          _isLoading = false;
+          _error = e.toString().replaceAll('Exception: ', '');
+          _loading = false;
         });
       }
     }
@@ -50,259 +44,364 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Order Details'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
+        backgroundColor: AppColors.background,
       ),
-      body: _buildBody(),
+      body: _body(),
     );
   }
 
-  Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+  Widget _body() {
+    if (_loading) {
+      return const Center(
+          child: CircularProgressIndicator(color: AppColors.primary));
     }
-
-    if (_errorMessage != null) {
+    if (_error != null) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, color: Colors.red, size: 60),
-            const SizedBox(height: 16),
-            Text(
-              _errorMessage!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 16, color: Colors.grey),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(onPressed: _fetchOrder, child: const Text('Retry')),
-          ],
-        ),
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          const Icon(Icons.error_outline_rounded,
+              size: 56, color: AppColors.textHint),
+          const SizedBox(height: 12),
+          Text('Failed to load order',
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary)),
+          const SizedBox(height: 20),
+          ElevatedButton.icon(
+            onPressed: _fetch,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Retry'),
+          ),
+        ]),
       );
     }
-
     if (_order == null) {
       return const Center(child: Text('Order not found.'));
     }
 
-    return Column(
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeaderInfo(),
-                const SizedBox(height: 24),
-                const Text(
-                  'Order Items',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 12),
-                ..._order!.items.map((item) => _buildOrderItem(item)),
-              ],
-            ),
-          ),
+    final s = _Status.of(_order!.status);
+
+    return Column(children: [
+      Expanded(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(children: [
+            _StatusBanner(order: _order!, s: s),
+            const SizedBox(height: 16),
+            _Receipt(order: _order!),
+          ]),
         ),
-        _buildFooterInfo(),
-      ],
-    );
+      ),
+      _TotalBar(order: _order!),
+    ]);
   }
+}
 
-  Widget _buildHeaderInfo() {
+// ─────────────────────────────────────────────────────────────────────────────
+class _StatusBanner extends StatelessWidget {
+  const _StatusBanner({required this.order, required this.s});
+  final Order order;
+  final _Status s;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+            color: s.color.withValues(alpha: 0.2), width: 1),
+        boxShadow: const [
           BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
-            blurRadius: 5,
-            spreadRadius: 1,
-            offset: const Offset(0, 2),
-          ),
+              color: Color(0x0A2C1810), blurRadius: 10, offset: Offset(0, 3))
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Order ID',
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _order!.id.substring(0, 8).toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              _buildStatusChip(_order!.status),
-            ],
-          ),
-          const Divider(height: 24),
-          const Text(
-            'Date & Time',
-            style: TextStyle(color: Colors.grey, fontSize: 12),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            DateFormat(
-              'MMM dd, yyyy - hh:mm a',
-            ).format(_order!.createdAt.toLocal()),
-            style: const TextStyle(fontSize: 16),
-          ),
-        ],
-      ),
+      child: Column(children: [
+        Container(
+          width: 64,
+          height: 64,
+          decoration:
+              BoxDecoration(color: s.light, shape: BoxShape.circle),
+          child: Icon(s.icon, color: s.color, size: 30),
+        ),
+        const SizedBox(height: 10),
+        Text(s.label,
+            style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: s.color)),
+        const SizedBox(height: 3),
+        Text('Order #${order.id.substring(0, 8).toUpperCase()}',
+            style: const TextStyle(
+                fontSize: 13, color: AppColors.textSecondary)),
+        const SizedBox(height: 10),
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          const Icon(Icons.access_time_rounded,
+              size: 13, color: AppColors.textHint),
+          const SizedBox(width: 4),
+          Text(_fmtDt(order.createdAt),
+              style: const TextStyle(
+                  fontSize: 12, color: AppColors.textSecondary)),
+        ]),
+      ]),
     );
   }
 
-  Widget _buildOrderItem(OrderItem item) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Colors.grey.shade200),
+  String _fmtDt(DateTime dt) {
+    const m = ['Jan','Feb','Mar','Apr','May','Jun',
+                'Jul','Aug','Sep','Oct','Nov','Dec'];
+    final h = dt.hour.toString().padLeft(2, '0');
+    final min = dt.minute.toString().padLeft(2, '0');
+    return '${dt.day} ${m[dt.month - 1]} ${dt.year}  ·  $h:$min';
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+class _Receipt extends StatelessWidget {
+  const _Receipt({required this.order});
+  final Order order;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+              color: Color(0x0A2C1810),
+              blurRadius: 10,
+              offset: Offset(0, 3))
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                '${item.quantity}x',
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Header
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+          child: Row(children: [
+            const Icon(Icons.receipt_long_rounded,
+                size: 16, color: AppColors.primary),
+            const SizedBox(width: 8),
+            const Text('Order Items',
+                style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary)),
+            const Spacer(),
+            Text('${order.items.length} item${order.items.length != 1 ? 's' : ''}',
                 style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.itemName,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '₹${item.unitPrice.toStringAsFixed(2)} per item (at purchase)',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                  ),
-                ],
-              ),
-            ),
-            Text(
-              '₹${item.subtotal.toStringAsFixed(2)}',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-          ],
+                    fontSize: 12, color: AppColors.textSecondary)),
+          ]),
         ),
-      ),
+        const Divider(height: 1, color: AppColors.divider),
+
+        // Items
+        ...order.items.asMap().entries.map((e) {
+          final item = e.value;
+          final last = e.key == order.items.length - 1;
+          return Column(children: [
+            _Row(item: item),
+            if (!last)
+              const Divider(
+                  height: 1,
+                  indent: 16,
+                  endIndent: 16,
+                  color: AppColors.divider),
+          ]);
+        }),
+
+        // Subtotals
+        const Divider(height: 1, color: AppColors.divider),
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(children: [
+            _SumRow('Subtotal',
+                '₹${order.totalAmount.toStringAsFixed(2)}'),
+            const SizedBox(height: 6),
+            _SumRow('Delivery', 'FREE',
+                valueColor: AppColors.success),
+            const SizedBox(height: 6),
+            _SumRow('Platform fee', '₹0.00'),
+          ]),
+        ),
+      ]),
     );
   }
+}
 
-  Widget _buildFooterInfo() {
+class _Row extends StatelessWidget {
+  const _Row({required this.item});
+  final OrderItem item;
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: AppColors.primaryLight,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          alignment: Alignment.center,
+          child: Text('${item.quantity}×',
+              style: const TextStyle(
+                  color: AppColors.primaryDark,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700)),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(item.itemName,
+                maxLines: 2,
+                style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary)),
+            const SizedBox(height: 2),
+            Text('₹${item.unitPrice.toStringAsFixed(2)} each',
+                style: const TextStyle(
+                    fontSize: 11, color: AppColors.textSecondary)),
+          ]),
+        ),
+        Text('₹${item.subtotal.toStringAsFixed(2)}',
+            style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary)),
+      ]),
+    );
+  }
+}
+
+class _SumRow extends StatelessWidget {
+  const _SumRow(this.label, this.value, {this.valueColor});
+  final String label;
+  final String value;
+  final Color? valueColor;
+  @override
+  Widget build(BuildContext context) {
+    return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+      Text(label,
+          style: const TextStyle(
+              fontSize: 13, color: AppColors.textSecondary)),
+      Text(value,
+          style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: valueColor ?? AppColors.textPrimary)),
+    ]);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+class _TotalBar extends StatelessWidget {
+  const _TotalBar({required this.order});
+  final Order order;
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
+      padding: EdgeInsets.fromLTRB(
+          20, 16, 20, MediaQuery.of(context).padding.bottom + 16),
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
-            spreadRadius: 1,
-            blurRadius: 10,
-            offset: const Offset(0, -3),
-          ),
+              color: Color(0x18000000),
+              blurRadius: 24,
+              offset: Offset(0, -6))
         ],
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: SafeArea(
-        child: Row(
+      child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              'Total Amount',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            Text(
-              '₹${_order!.totalAmount.toStringAsFixed(2)}',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-          ],
-        ),
-      ),
+            Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Total Paid',
+                      style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary)),
+                  const SizedBox(height: 2),
+                  const Text('Tax included',
+                      style: TextStyle(
+                          fontSize: 11, color: AppColors.textHint)),
+                ]),
+            Text('₹${order.totalAmount.toStringAsFixed(2)}',
+                style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primary)),
+          ]),
     );
   }
+}
 
-  Widget _buildStatusChip(String status) {
-    Color chipColor;
-    switch (status) {
+// ─────────────────────────────────────────────────────────────────────────────
+class _Status {
+  const _Status(
+      {required this.label,
+      required this.color,
+      required this.light,
+      required this.icon});
+  final String label;
+  final Color color;
+  final Color light;
+  final IconData icon;
+
+  factory _Status.of(String raw) {
+    switch (raw.toUpperCase()) {
       case 'PLACED':
-        chipColor = Colors.blue;
-        break;
+        return const _Status(
+            label: 'Order Placed',
+            color: AppColors.primary,
+            light: AppColors.primaryLight,
+            icon: Icons.pending_rounded);
       case 'ACCEPTED':
+        return const _Status(
+            label: 'Accepted',
+            color: Color(0xFF7C3AED),
+            light: Color(0xFFEDE9FE),
+            icon: Icons.thumb_up_alt_rounded);
       case 'PREPARING':
-        chipColor = Colors.orange;
-        break;
+        return const _Status(
+            label: 'Preparing Your Order',
+            color: AppColors.warning,
+            light: AppColors.warningLight,
+            icon: Icons.restaurant_rounded);
       case 'READY':
-        chipColor = Colors.green;
-        break;
+        return const _Status(
+            label: 'Ready to Pick Up',
+            color: AppColors.success,
+            light: AppColors.successLight,
+            icon: Icons.check_circle_rounded);
       case 'COMPLETED':
-        chipColor = Colors.teal;
-        break;
+        return const _Status(
+            label: 'Completed',
+            color: Color(0xFF0D9488),
+            light: Color(0xFFCCFBF1),
+            icon: Icons.done_all_rounded);
       case 'CANCELLED':
-        chipColor = Colors.red;
-        break;
+        return const _Status(
+            label: 'Cancelled',
+            color: AppColors.error,
+            light: AppColors.errorLight,
+            icon: Icons.cancel_rounded);
       default:
-        chipColor = Colors.grey;
+        return const _Status(
+            label: 'Unknown',
+            color: AppColors.textSecondary,
+            light: AppColors.surfaceVariant,
+            icon: Icons.help_rounded);
     }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: chipColor.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: chipColor.withValues(alpha: 0.5)),
-      ),
-      child: Text(
-        status,
-        style: TextStyle(
-          color: chipColor,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
   }
 }
