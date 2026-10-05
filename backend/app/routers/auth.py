@@ -47,6 +47,7 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
         id=new_user.id,
         name=new_user.name,
         email=new_user.email,
+        role=new_user.role,
     )
 
 
@@ -73,6 +74,7 @@ def login_user(user: UserLogin, db: Session = Depends(get_db)):
             id=db_user.id,
             name=db_user.name,
             email=db_user.email,
+            role=db_user.role,
         ),
     )
 
