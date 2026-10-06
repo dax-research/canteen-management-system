@@ -33,6 +33,14 @@ class StaffService {
     return Order.fromJson((response as Map).cast<String, dynamic>());
   }
 
+  static Future<Order> confirmCashPayment(String orderId) async {
+    final response = await ApiService.patch(
+      '${ApiConstants.staffOrders}/$orderId/payment',
+      {'status': 'PAID'},
+    );
+    return Order.fromJson((response as Map).cast<String, dynamic>());
+  }
+
   static Future<List<FoodItem>> getInventory() async {
     final response = await ApiService.get(ApiConstants.inventory);
     if (response is! List) return [];

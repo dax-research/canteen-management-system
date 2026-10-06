@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/order.dart';
+import '../../services/invoice_service.dart';
 import '../../services/order_service.dart';
 
 class OrderDetailsScreen extends StatefulWidget {
@@ -44,6 +45,24 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     }
   }
 
+  Future<void> _printInvoice() async {
+    final order = _order;
+    if (order == null) return;
+    try {
+      await InvoiceService.printInvoice(order);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Could not generate invoice: ${error.toString().replaceAll('Exception: ', '')}',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -51,6 +70,13 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
       appBar: AppBar(
         title: const Text('Order Details'),
         backgroundColor: AppColors.background,
+        actions: [
+          IconButton(
+            tooltip: 'Generate invoice',
+            onPressed: _order == null ? null : _printInvoice,
+            icon: const Icon(Icons.receipt_long_rounded),
+          ),
+        ],
       ),
       body: _body(),
     );
@@ -328,6 +354,20 @@ class _Receipt extends StatelessWidget {
                   order.etaMinutes == null ? 'Soon' : '${order.etaMinutes} min',
                   valueColor: AppColors.primaryDark,
                 ),
+                const Divider(height: 20),
+                _SumRow('Payment method', order.paymentMethodText),
+                const SizedBox(height: 6),
+                _SumRow(
+                  'Payment status',
+                  order.paymentStatus == 'PAID' ? 'Paid' : 'Due at pickup',
+                  valueColor: order.paymentStatus == 'PAID'
+                      ? AppColors.success
+                      : AppColors.warning,
+                ),
+                if (order.paymentReference != null) ...[
+                  const SizedBox(height: 6),
+                  _SumRow('Reference', order.paymentReference!),
+                ],
               ],
             ),
           ),
@@ -460,8 +500,8 @@ class _TotalBar extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                'Total Paid',
+              Text(
+                order.paymentStatus == 'PAID' ? 'Total Paid' : 'Order Total',
                 style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 2),

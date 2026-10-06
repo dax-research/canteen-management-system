@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+  import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/routing/app_router.dart';
 import '../../core/theme/app_colors.dart';
@@ -7,11 +7,16 @@ import '../../services/cart_service.dart';
 import '../../services/order_service.dart';
 import '../../widgets/app_network_image.dart';
 
-class _PickupChoice {
-  const _PickupChoice({required this.pickupTime, required this.etaMinutes});
+class _CheckoutChoice {
+  const _CheckoutChoice({
+    required this.pickupTime,
+    required this.etaMinutes,
+    required this.paymentMethod,
+  });
 
   final String pickupTime;
   final int etaMinutes;
+  final String paymentMethod;
 }
 
 class CartScreen extends StatefulWidget {
@@ -39,11 +44,12 @@ class _CartScreenState extends State<CartScreen> {
     });
     try {
       final c = await CartService.getCart();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _cart = c;
           _loading = false;
         });
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -59,11 +65,12 @@ class _CartScreenState extends State<CartScreen> {
     setState(() => _mutating = true);
     try {
       final c = await fn();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _cart = c;
           _mutating = false;
         });
+      }
     } catch (e) {
       if (mounted) {
         setState(() => _mutating = false);
@@ -119,9 +126,9 @@ class _CartScreenState extends State<CartScreen> {
   Future<void> _checkout() async {
     if (_cart == null || _cart!.items.isEmpty || _mutating) return;
 
-    final choice = await showDialog<_PickupChoice>(
+    final choice = await showDialog<_CheckoutChoice>(
       context: context,
-      builder: (ctx) => _PickupSelectionDialog(),
+      builder: (ctx) => const _CheckoutDialog(),
     );
 
     if (choice == null) return;
@@ -132,6 +139,7 @@ class _CartScreenState extends State<CartScreen> {
         orderType: 'PICKUP',
         pickupTime: choice.pickupTime,
         etaMinutes: choice.etaMinutes,
+        paymentMethod: choice.paymentMethod,
       );
       if (mounted) {
         setState(() {
@@ -289,24 +297,51 @@ class _CartScreenState extends State<CartScreen> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-class _PickupSelectionDialog extends StatelessWidget {
-  _PickupSelectionDialog();
+class _CheckoutDialog extends StatefulWidget {
+  const _CheckoutDialog();
 
-  final List<_PickupChoice> _slots = const [
-    _PickupChoice(pickupTime: 'ASAP', etaMinutes: 15),
-    _PickupChoice(pickupTime: '12:30 PM', etaMinutes: 20),
-    _PickupChoice(pickupTime: '1:00 PM', etaMinutes: 25),
-    _PickupChoice(pickupTime: '1:30 PM', etaMinutes: 30),
-    _PickupChoice(pickupTime: '2:00 PM', etaMinutes: 35),
+  @override
+  State<_CheckoutDialog> createState() => _CheckoutDialogState();
+}
+
+class _CheckoutDialogState extends State<_CheckoutDialog> {
+  static const _slots = [
+    _CheckoutChoice(pickupTime: 'ASAP', etaMinutes: 15, paymentMethod: 'CASH'),
+    _CheckoutChoice(
+      pickupTime: '12:30 PM',
+      etaMinutes: 20,
+      paymentMethod: 'CASH',
+    ),
+    _CheckoutChoice(
+      pickupTime: '1:00 PM',
+      etaMinutes: 25,
+      paymentMethod: 'CASH',
+    ),
+    _CheckoutChoice(
+      pickupTime: '1:30 PM',
+      etaMinutes: 30,
+      paymentMethod: 'CASH',
+    ),
+    _CheckoutChoice(
+      pickupTime: '2:00 PM',
+      etaMinutes: 35,
+      paymentMethod: 'CASH',
+    ),
   ];
+
+  String _pickupTime = 'ASAP';
+  int _etaMinutes = 15;
+  String _paymentMethod = 'CASH';
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      scrollable: true,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       backgroundColor: AppColors.surface,
       title: const Text(
-        'Choose pickup time',
+        'Choose payment & pickup',
         style: TextStyle(
           fontWeight: FontWeight.w700,
           color: AppColors.textPrimary,
@@ -314,19 +349,139 @@ class _PickupSelectionDialog extends StatelessWidget {
       ),
       content: SizedBox(
         width: double.maxFinite,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: _slots
-              .map(
-                (slot) => ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(slot.pickupTime),
-                  subtitle: Text('Ready in ~${slot.etaMinutes} minutes'),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => Navigator.pop(context, slot),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Payment method',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 6),
+              _PaymentChoiceTile(
+                title: 'Cash on pickup',
+                subtitle: 'Pay at the counter when collecting.',
+                selected: _paymentMethod == 'CASH',
+                onTap: () => setState(() => _paymentMethod = 'CASH'),
+              ),
+              _PaymentChoiceTile(
+                title: 'Online payment (demo)',
+                subtitle: 'Simulated payment only; no real charge is made.',
+                selected: _paymentMethod == 'MOCK_ONLINE',
+                onTap: () => setState(() => _paymentMethod = 'MOCK_ONLINE'),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Pickup time',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 6),
+              DropdownButtonFormField<String>(
+                initialValue: _pickupTime,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  border: OutlineInputBorder(),
                 ),
-              )
-              .toList(),
+                items: _slots
+                    .map(
+                      (slot) => DropdownMenuItem(
+                        value: slot.pickupTime,
+                        child: Text(
+                          '${slot.pickupTime}  ·  ${slot.etaMinutes} min',
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  if (value == null) return;
+                  final slot = _slots.firstWhere(
+                    (item) => item.pickupTime == value,
+                  );
+                  setState(() {
+                    _pickupTime = slot.pickupTime;
+                    _etaMinutes = slot.etaMinutes;
+                  });
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(
+            context,
+            _CheckoutChoice(
+              pickupTime: _pickupTime,
+              etaMinutes: _etaMinutes,
+              paymentMethod: _paymentMethod,
+            ),
+          ),
+          child: const Text('Place order'),
+        ),
+      ],
+    );
+  }
+}
+
+class _PaymentChoiceTile extends StatelessWidget {
+  const _PaymentChoiceTile({
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Icon(
+              selected
+                  ? Icons.radio_button_checked
+                  : Icons.radio_button_unchecked,
+              color: selected ? AppColors.primary : AppColors.textHint,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

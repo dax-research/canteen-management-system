@@ -70,6 +70,10 @@ class AdminOrderResponse(BaseModel):
     order_type: str = "PICKUP"
     pickup_time: Optional[str] = None
     eta_minutes: Optional[int] = None
+    payment_method: str = "CASH"
+    payment_status: str = "PENDING"
+    payment_reference: Optional[str] = None
+    paid_at: Optional[datetime] = None
     total_amount: float
     created_at: datetime
     updated_at: datetime

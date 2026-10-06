@@ -230,8 +230,14 @@ An order shall contain:
 * Total amount
 * Order date/time
 * Order status
+* Pickup time and payment method/status
 
 The system shall generate a unique order identifier.
+
+Customers may choose cash payment at pickup or a clearly labelled simulated
+online payment for demonstration purposes. Simulated payment does not connect
+to a payment provider or charge money. Staff can confirm cash collection, and
+customers can generate an invoice from the order details.
 
 ---
 

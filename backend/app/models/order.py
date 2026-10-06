@@ -47,6 +47,24 @@ class Order(Base):
         Integer,
         nullable=True,
     )
+    payment_method: Mapped[str] = mapped_column(
+        String(20),
+        default="CASH",
+        nullable=False,
+    )
+    payment_status: Mapped[str] = mapped_column(
+        String(20),
+        default="PENDING",
+        nullable=False,
+    )
+    payment_reference: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+    )
+    paid_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     total_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

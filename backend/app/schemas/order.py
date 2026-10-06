@@ -1,10 +1,8 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict
-
-from typing import Literal, Optional
 
 OrderStatus = Literal[
     "PLACED", "ACCEPTED", "PREPARING", "READY", "COMPLETED", "CANCELLED"
@@ -15,10 +13,15 @@ class OrderCreate(BaseModel):
     order_type: Literal["PICKUP"] = "PICKUP"
     pickup_time: Optional[str] = None
     eta_minutes: Optional[int] = None
+    payment_method: Literal["CASH", "MOCK_ONLINE"] = "CASH"
 
 
 class OrderStatusUpdate(BaseModel):
     status: OrderStatus
+
+
+class PaymentStatusUpdate(BaseModel):
+    status: Literal["PAID"]
 
 
 class OrderItemResponse(BaseModel):
@@ -41,6 +44,10 @@ class OrderResponse(BaseModel):
     order_type: str = "PICKUP"
     pickup_time: Optional[str] = None
     eta_minutes: Optional[int] = None
+    payment_method: str = "CASH"
+    payment_status: str = "PENDING"
+    payment_reference: Optional[str] = None
+    paid_at: Optional[datetime] = None
     total_amount: float
     created_at: datetime
     updated_at: datetime

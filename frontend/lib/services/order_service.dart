@@ -7,12 +7,14 @@ class OrderService {
     String orderType = 'PICKUP',
     String? pickupTime,
     int? etaMinutes,
+    String paymentMethod = 'CASH',
   }) async {
     try {
       final body = <String, dynamic>{
         'order_type': orderType,
-        if (pickupTime != null) 'pickup_time': pickupTime,
-        if (etaMinutes != null) 'eta_minutes': etaMinutes,
+        'pickup_time': ?pickupTime,
+        'eta_minutes': ?etaMinutes,
+        'payment_method': paymentMethod,
       };
       final response = await ApiService.post(ApiConstants.orders, body);
       return Order.fromJson(response as Map<String, dynamic>);

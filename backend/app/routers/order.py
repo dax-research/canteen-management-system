@@ -1,5 +1,7 @@
 from decimal import Decimal
 from typing import List
+from datetime import datetime, timezone
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session, joinedload
@@ -11,7 +13,13 @@ from app.models.cart import Cart, CartItem
 from app.models.order import Order, OrderItem
 from app.models.user import User
 from app.models.food_item import FoodItem
-from app.schemas.order import OrderCreate, OrderResponse, OrderStatusUpdate, OrderStatus
+from app.schemas.order import (
+    OrderCreate,
+    OrderResponse,
+    OrderStatusUpdate,
+    OrderStatus,
+    PaymentStatusUpdate,
+)
 
 VALID_TRANSITIONS = {
     "PLACED": {"ACCEPTED", "CANCELLED"},
@@ -54,6 +62,10 @@ def place_order(
 
     pickup_time = order_in.pickup_time or _default_pickup_time()
     eta_minutes = order_in.eta_minutes or _default_eta_minutes(pickup_time)
+    paid_online = order_in.payment_method == "MOCK_ONLINE"
+    payment_reference = (
+        f"MOCK-{uuid4().hex[:10].upper()}" if paid_online else None
+    )
 
     total_amount = Decimal("0.00")
     order_items = []
@@ -94,6 +106,10 @@ def place_order(
         order_type=order_in.order_type,
         pickup_time=pickup_time,
         eta_minutes=eta_minutes,
+        payment_method=order_in.payment_method,
+        payment_status="PAID" if paid_online else "PENDING",
+        payment_reference=payment_reference,
+        paid_at=datetime.now(timezone.utc) if paid_online else None,
         total_amount=total_amount,
         items=order_items,
     )
@@ -179,6 +195,12 @@ def update_order_status(
     if current_status == new_status:
         return order
 
+    if new_status == "COMPLETED" and order.payment_status != "PAID":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cash payment must be confirmed before completing the order",
+        )
+
     allowed_next = VALID_TRANSITIONS.get(current_status, set())
     if new_status not in allowed_next:
         raise HTTPException(
@@ -187,6 +209,42 @@ def update_order_status(
         )
 
     order.status = new_status
+    db.commit()
+    db.refresh(order)
+    return order
+
+
+@router.patch(
+    "/staff/{order_id}/payment",
+    response_model=OrderResponse,
+)
+def confirm_cash_payment(
+    order_id: str,
+    payment_update: PaymentStatusUpdate,
+    db: Session = Depends(get_db),
+    staff_user: User = Depends(get_staff_user),
+):
+    order = (
+        db.query(Order)
+        .options(joinedload(Order.items))
+        .filter(Order.id == order_id)
+        .first()
+    )
+
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.payment_status == "PAID":
+        return order
+    if order.payment_method != "CASH":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only cash payments can be collected by staff",
+        )
+
+    order.payment_status = payment_update.status
+    order.payment_reference = f"CASH-{uuid4().hex[:10].upper()}"
+    order.paid_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(order)
     return order

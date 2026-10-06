@@ -64,6 +64,10 @@ void main() {
         'order_type': 'PICKUP',
         'pickup_time': '1:30 PM',
         'eta_minutes': 25,
+        'payment_method': 'MOCK_ONLINE',
+        'payment_status': 'PAID',
+        'payment_reference': 'MOCK-A1B2C3D4E5',
+        'paid_at': '2026-10-01T12:01:00Z',
         'total_amount': 40.0,
         'created_at': '2026-10-01T12:00:00Z',
         'updated_at': '2026-10-01T12:00:00Z',
@@ -99,6 +103,11 @@ void main() {
       expect(order.orderType, 'PICKUP');
       expect(order.pickupTime, '1:30 PM');
       expect(order.etaMinutes, 25);
+      expect(order.paymentMethod, 'MOCK_ONLINE');
+      expect(order.paymentMethodText, 'Online (demo)');
+      expect(order.paymentStatus, 'PAID');
+      expect(order.paymentReference, 'MOCK-A1B2C3D4E5');
+      expect(order.paidAt, DateTime.parse('2026-10-01T12:01:00Z'));
       expect(order.totalAmount, 40.0);
       expect(order.items.length, 2);
       expect(order.items[0].itemName, 'Test Pizza');
@@ -134,6 +143,8 @@ void main() {
       expect(orders[0].id, 'order-1');
       expect(orders[1].id, 'order-2');
       expect(orders[1].status, 'COMPLETED');
+      expect(orders[0].paymentMethod, 'CASH');
+      expect(orders[0].paymentStatus, 'PENDING');
     });
   });
 }

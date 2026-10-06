@@ -39,6 +39,10 @@ def _to_admin_order(order: Order, customer: User) -> AdminOrderResponse:
         order_type=order.order_type,
         pickup_time=order.pickup_time,
         eta_minutes=order.eta_minutes,
+        payment_method=order.payment_method,
+        payment_status=order.payment_status,
+        payment_reference=order.payment_reference,
+        paid_at=order.paid_at,
         total_amount=float(order.total_amount),
         created_at=order.created_at,
         updated_at=order.updated_at,
@@ -148,6 +152,12 @@ def update_admin_order_status(
     # Idempotent: re-sending the current status is a no-op, not an error.
     if current_status == new_status:
         return _to_admin_order(order, order.user)
+
+    if new_status == "COMPLETED" and order.payment_status != "PAID":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cash payment must be confirmed before completing the order",
+        )
 
     allowed_next = VALID_TRANSITIONS.get(current_status, set())
     if new_status not in allowed_next:

@@ -40,6 +40,10 @@ class Order {
   final String orderType;
   final String? pickupTime;
   final int? etaMinutes;
+  final String paymentMethod;
+  final String paymentStatus;
+  final String? paymentReference;
+  final DateTime? paidAt;
   final double totalAmount;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -52,6 +56,10 @@ class Order {
     this.orderType = 'PICKUP',
     this.pickupTime,
     this.etaMinutes,
+    this.paymentMethod = 'CASH',
+    this.paymentStatus = 'PENDING',
+    this.paymentReference,
+    this.paidAt,
     required this.totalAmount,
     required this.createdAt,
     required this.updatedAt,
@@ -59,11 +67,13 @@ class Order {
   });
 
   String get pickupText => pickupTime ?? 'ASAP';
+  String get paymentMethodText =>
+      paymentMethod == 'MOCK_ONLINE' ? 'Online (demo)' : 'Cash on pickup';
   String get etaText {
     if (etaMinutes == null || etaMinutes! <= 0) {
       return 'Pickup ready soon';
     }
-    return 'ETA: ${etaMinutes} min';
+    return 'ETA: $etaMinutes min';
   }
 
   factory Order.fromJson(Map<String, dynamic> json) {
@@ -79,6 +89,12 @@ class Order {
       orderType: (json['order_type'] as String?) ?? 'PICKUP',
       pickupTime: json['pickup_time'] as String?,
       etaMinutes: json['eta_minutes'] as int?,
+      paymentMethod: (json['payment_method'] as String?) ?? 'CASH',
+      paymentStatus: (json['payment_status'] as String?) ?? 'PENDING',
+      paymentReference: json['payment_reference'] as String?,
+      paidAt: json['paid_at'] == null
+          ? null
+          : DateTime.parse(json['paid_at'] as String),
       totalAmount: (json['total_amount'] as num).toDouble(),
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),

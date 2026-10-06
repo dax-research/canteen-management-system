@@ -52,6 +52,8 @@ dependencies:
 
   # Loading skeleton animations
   shimmer: ^3.0.0
+  pdf: ^3.13.1
+  printing: ^5.15.1
 
 dev_dependencies:
   flutter_test:

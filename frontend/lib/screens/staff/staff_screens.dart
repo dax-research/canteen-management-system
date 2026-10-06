@@ -237,6 +237,22 @@ class _StaffOrderDetailsScreenState extends State<StaffOrderDetailsScreen> {
     }
   }
 
+  Future<void> _confirmCashPayment() async {
+    setState(() => _updating = true);
+    try {
+      final updated = await StaffService.confirmCashPayment(widget.orderId);
+      if (mounted) setState(() => _order = updated);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_message(error))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _updating = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final order = _order;
@@ -301,6 +317,35 @@ class _StaffOrderDetailsScreenState extends State<StaffOrderDetailsScreen> {
                   title: const Text('Total'),
                   trailing: Text(_money(order.totalAmount)),
                 ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Payment'),
+                  subtitle: Text(order.paymentMethodText),
+                  trailing: Text(
+                    order.paymentStatus == 'PAID' ? 'PAID' : 'DUE',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: order.paymentStatus == 'PAID'
+                          ? AppColors.success
+                          : AppColors.warning,
+                    ),
+                  ),
+                ),
+                if (order.paymentReference != null)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Payment reference'),
+                    subtitle: Text(order.paymentReference!),
+                  ),
+                if (order.paymentMethod == 'CASH' &&
+                    order.paymentStatus != 'PAID') ...[
+                  const SizedBox(height: 8),
+                  FilledButton.icon(
+                    onPressed: _updating ? null : _confirmCashPayment,
+                    icon: const Icon(Icons.payments_outlined),
+                    label: const Text('Confirm cash received'),
+                  ),
+                ],
                 const SizedBox(height: 20),
                 if (next.isEmpty)
                   const Text('This order is in a final status.')
