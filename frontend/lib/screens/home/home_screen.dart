@@ -8,6 +8,7 @@ import '../../services/menu_service.dart';
 import '../../widgets/app_network_image.dart';
 import '../../widgets/app_shimmer.dart';
 import '../../widgets/food_item_card.dart';
+import '../../widgets/profile_menu_button.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,6 +20,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = true;
   String? _error;
   List<Category> _cats = [];
+  List<FoodItem> _allItems = [];
   List<FoodItem> _items = [];
   String? _selectedCat;
   final _search = TextEditingController();
@@ -45,7 +47,12 @@ class _HomeScreenState extends State<HomeScreen> {
       final c = await MenuService.getCategories();
       final i = await MenuService.getFoodItems();
       if (!mounted || req != _reqCount) return;
-      setState(() { _cats = c; _items = i; _isLoading = false; });
+      setState(() {
+        _cats = c;
+        _allItems = i;
+        _applyFilters();
+        _isLoading = false;
+      });
     } catch (_) {
       if (!mounted || req != _reqCount) return;
       setState(() { _error = 'Could not load menu'; _isLoading = false; });
@@ -53,28 +60,29 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadItems() async {
-    final req = ++_reqCount;
-    setState(() { _isLoading = true; _error = null; });
-    try {
-      final i = await MenuService.getFoodItems(
-          search: _search.text, categoryId: _selectedCat);
-      if (!mounted || req != _reqCount) return;
-      setState(() { _items = i; _isLoading = false; });
-    } catch (_) {
-      if (!mounted || req != _reqCount) return;
-      setState(() { _error = 'Failed to load items'; _isLoading = false; });
-    }
+    if (!mounted) return;
+    setState(_applyFilters);
+  }
+
+  void _applyFilters() {
+    _items = MenuService.filterFoodItems(
+      _allItems,
+      search: _search.text,
+      categoryId: _selectedCat,
+    );
   }
 
   void _onSearch(String _) {
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 400), _loadItems);
+    _debounce = Timer(const Duration(milliseconds: 250), _loadItems);
   }
 
   void _onCat(String? id) {
     if (_selectedCat == id) return;
-    setState(() => _selectedCat = id);
-    _loadItems();
+    setState(() {
+      _selectedCat = id;
+      _applyFilters();
+    });
   }
 
   @override
@@ -155,7 +163,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 2),
                     const Text(
-                      'What\'s for today? 🍽️',
+                      'Student Menu',
                       style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
@@ -165,19 +173,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               // Avatar
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: AppColors.primaryLight,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                      color: AppColors.primary.withValues(alpha: 0.3),
-                      width: 1.5),
-                ),
-                child: const Icon(Icons.person_rounded,
-                    color: AppColors.primary, size: 22),
-              ),
+              const ProfileMenuButton(),
             ],
           ),
         ),
@@ -196,7 +192,7 @@ class _HomeScreenState extends State<HomeScreen> {
               controller: _search,
               onChanged: _onSearch,
               decoration: InputDecoration(
-                hintText: 'Search dishes...',
+                hintText: 'Search dishes or categories...',
                 prefixIcon: const Icon(Icons.search_rounded,
                     color: AppColors.textHint, size: 20),
                 suffixIcon: _search.text.isNotEmpty
@@ -205,7 +201,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         onPressed: () {
                           _search.clear();
                           _loadItems();
-                          setState(() {});
                         },
                       )
                     : null,

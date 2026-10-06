@@ -15,7 +15,12 @@ class ApiService {
     return headers;
   }
 
-  static dynamic _processResponse(http.Response response) {
+  static Future<dynamic> _processResponse(http.Response response) async {
+    if (response.statusCode == 401) {
+      await AuthService.clearLocalSession();
+      AuthService.onUnauthorized?.call();
+    }
+
     if (response.body.isEmpty) {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return null;
@@ -29,6 +34,9 @@ class ApiService {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return null;
       }
+      if (response.statusCode == 401) {
+        throw Exception('Unauthorized. Please login again.');
+      }
       throw Exception('Invalid response format from server.');
     }
 
@@ -37,7 +45,20 @@ class ApiService {
     } else {
       String errorMessage = 'An error occurred. Please try again.';
       if (responseData is Map && responseData['detail'] != null) {
-        errorMessage = responseData['detail'].toString();
+        final detail = responseData['detail'];
+        if (detail is List) {
+          final messages = detail
+              .whereType<Map>()
+              .map((entry) => entry['msg']?.toString())
+              .whereType<String>()
+              .where((message) => message.isNotEmpty)
+              .toList();
+          errorMessage = messages.isEmpty
+              ? detail.toString()
+              : messages.join('\n');
+        } else {
+          errorMessage = detail.toString();
+        }
       } else if (response.statusCode == 401) {
         errorMessage = 'Unauthorized. Please login again.';
       }
@@ -52,7 +73,7 @@ class ApiService {
         headers: await _getHeaders(),
         body: jsonEncode(body),
       );
-      return _processResponse(response);
+      return await _processResponse(response);
     } catch (e) {
       rethrow;
     }
@@ -69,7 +90,7 @@ class ApiService {
       }
 
       final response = await http.get(uri, headers: await _getHeaders());
-      return _processResponse(response);
+      return await _processResponse(response);
     } catch (e) {
       rethrow;
     }
@@ -82,7 +103,7 @@ class ApiService {
         headers: await _getHeaders(),
         body: jsonEncode(body),
       );
-      return _processResponse(response);
+      return await _processResponse(response);
     } catch (e) {
       rethrow;
     }
@@ -94,7 +115,7 @@ class ApiService {
         Uri.parse(url),
         headers: await _getHeaders(),
       );
-      return _processResponse(response);
+      return await _processResponse(response);
     } catch (e) {
       rethrow;
     }

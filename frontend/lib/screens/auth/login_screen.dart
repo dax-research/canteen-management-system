@@ -36,8 +36,14 @@ class _LoginScreenState extends State<LoginScreen> {
       final ok = await AuthService.login(
           _emailCtrl.text.trim(), _passwordCtrl.text);
       if (ok && mounted) {
-        context.read<AuthProvider>().notifyAuthenticated();
-        context.go(AppPaths.home);
+        final user = await AuthService.getCachedUser();
+        if (!mounted) return;
+        if (user == null || user.role == UserRole.unknown) {
+          await AuthService.clearLocalSession();
+          throw Exception('Your account role could not be loaded. Please try again.');
+        }
+        context.read<AuthProvider>().notifyAuthenticated(user);
+        context.go(AppPaths.forRole(user.role));
       }
     } catch (e) {
       if (mounted) setState(() => _error = e.toString().replaceAll('Exception: ', ''));

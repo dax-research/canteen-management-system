@@ -11,6 +11,8 @@ import '../../screens/home/home_screen.dart';
 import '../../screens/cart/cart_screen.dart';
 import '../../screens/orders/orders_screen.dart';
 import '../../screens/orders/order_details_screen.dart' show OrderDetailsScreen;
+import '../../screens/admin/admin_screens.dart';
+import '../../screens/staff/staff_screens.dart';
 
 abstract final class AppRoutes {
   static const String splash      = 'splash';
@@ -21,6 +23,14 @@ abstract final class AppRoutes {
   static const String cart        = 'cart';
   static const String orders      = 'orders';
   static const String orderDetail = 'order-detail';
+  static const String staffHome = 'staff-home';
+  static const String staffOrders = 'staff-orders';
+  static const String staffOrderDetail = 'staff-order-detail';
+  static const String staffInventory = 'staff-inventory';
+  static const String adminHome = 'admin-home';
+  static const String adminCategories = 'admin-categories';
+  static const String adminFoodItems = 'admin-food-items';
+  static const String adminInventory = 'admin-inventory';
 }
 
 abstract final class AppPaths {
@@ -31,6 +41,41 @@ abstract final class AppPaths {
   static const String cart        = '/cart';
   static const String orders      = '/orders';
   static const String orderDetail = '/orders/:orderId';
+  static const String staff = '/staff';
+  static const String staffOrders = '/staff/orders';
+  static const String staffOrderDetail = '/staff/orders/:orderId';
+  static const String staffInventory = '/staff/inventory';
+  static const String admin = '/admin';
+  static const String adminCategories = '/admin/categories';
+  static const String adminFoodItems = '/admin/food-items';
+  static const String adminInventory = '/admin/inventory';
+
+  static String forRole(UserRole role) => switch (role) {
+        UserRole.customer => home,
+        UserRole.staff => staff,
+        UserRole.admin => admin,
+        UserRole.unknown => login,
+      };
+
+  static String? roleRedirect(UserRole role, String location) {
+    if (role == UserRole.unknown) {
+      return location == login ? null : login;
+    }
+    if (location == splash || location == login || location == register) {
+      return forRole(role);
+    }
+
+    final isCustomerPath = location == home ||
+        location == cart ||
+        location == orders ||
+        location.startsWith('$orders/');
+    final isStaffPath = location.startsWith('/staff');
+    final isAdminPath = location.startsWith('/admin');
+    if (role != UserRole.customer && isCustomerPath) return forRole(role);
+    if (!role.isStaff && isStaffPath) return forRole(role);
+    if (!role.isAdmin && isAdminPath) return forRole(role);
+    return null;
+  }
 }
 
 abstract final class AppRouter {
@@ -40,6 +85,7 @@ abstract final class AppRouter {
   static final GoRouter router = GoRouter(
     navigatorKey: _rootNavigatorKey,
     initialLocation: AppPaths.splash,
+    refreshListenable: AuthProvider.navigationChanges,
     debugLogDiagnostics: false,
     redirect: _redirect,
     routes: [
@@ -94,6 +140,48 @@ abstract final class AppRouter {
           return OrderDetailsScreen(orderId: orderId);
         },
       ),
+      GoRoute(
+        path: AppPaths.staff,
+        name: AppRoutes.staffHome,
+        builder: (context, state) => const StaffDashboardScreen(),
+      ),
+      GoRoute(
+        path: AppPaths.staffOrders,
+        name: AppRoutes.staffOrders,
+        builder: (context, state) => const StaffOrdersScreen(),
+      ),
+      GoRoute(
+        path: AppPaths.staffOrderDetail,
+        name: AppRoutes.staffOrderDetail,
+        builder: (context, state) => StaffOrderDetailsScreen(
+          orderId: state.pathParameters['orderId']!,
+        ),
+      ),
+      GoRoute(
+        path: AppPaths.staffInventory,
+        name: AppRoutes.staffInventory,
+        builder: (context, state) => const StaffInventoryScreen(),
+      ),
+      GoRoute(
+        path: AppPaths.admin,
+        name: AppRoutes.adminHome,
+        builder: (context, state) => const AdminDashboardScreen(),
+      ),
+      GoRoute(
+        path: AppPaths.adminCategories,
+        name: AppRoutes.adminCategories,
+        builder: (context, state) => const AdminCategoriesScreen(),
+      ),
+      GoRoute(
+        path: AppPaths.adminFoodItems,
+        name: AppRoutes.adminFoodItems,
+        builder: (context, state) => const AdminFoodItemsScreen(),
+      ),
+      GoRoute(
+        path: AppPaths.adminInventory,
+        name: AppRoutes.adminInventory,
+        builder: (context, state) => const AdminInventoryScreen(),
+      ),
     ],
 
     errorBuilder: (context, state) => _RouterErrorPage(error: state.error),
@@ -101,22 +189,21 @@ abstract final class AppRouter {
 
   static String? _redirect(BuildContext context, GoRouterState state) {
     final auth = context.read<AuthProvider>();
+    final loc = state.matchedLocation;
 
     // Still initialising — let splash handle it
-    if (auth.isInitialising) return null;
-
+    if (auth.isInitialising) {
+      return loc == AppPaths.splash ? null : AppPaths.splash;
+    }
     final isAuthenticated = auth.isAuthenticated;
-    final loc = state.matchedLocation;
 
     final isPublic = loc == AppPaths.splash ||
         loc == AppPaths.login ||
         loc == AppPaths.register;
 
     if (!isAuthenticated && !isPublic) return AppPaths.login;
-    if (isAuthenticated && (loc == AppPaths.login || loc == AppPaths.register)) {
-      return AppPaths.home;
-    }
-    return null;
+    if (!isAuthenticated) return null;
+    return AppPaths.roleRedirect(auth.role, loc);
   }
 }
 

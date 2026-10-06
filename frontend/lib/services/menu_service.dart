@@ -4,6 +4,22 @@ import '../models/food_item.dart';
 import 'api_service.dart';
 
 class MenuService {
+  static List<FoodItem> filterFoodItems(
+    List<FoodItem> items, {
+    String? search,
+    String? categoryId,
+  }) {
+    final query = search?.trim().toLowerCase() ?? '';
+    return items.where((item) {
+      final matchesCategory =
+          categoryId == null || item.categoryId == categoryId;
+      final matchesQuery = query.isEmpty ||
+          item.name.toLowerCase().contains(query) ||
+          item.categoryName.toLowerCase().contains(query);
+      return matchesCategory && matchesQuery;
+    }).toList();
+  }
+
   static Future<List<Category>> getCategories() async {
     try {
       final dynamic response = await ApiService.get(ApiConstants.categories);

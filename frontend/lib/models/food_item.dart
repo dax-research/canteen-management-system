@@ -7,6 +7,7 @@ class FoodItem {
   final double price;
   final String? imageUrl;
   final bool isAvailable;
+  final int stock;
 
   FoodItem({
     required this.id,
@@ -17,6 +18,7 @@ class FoodItem {
     required this.price,
     this.imageUrl,
     required this.isAvailable,
+    this.stock = 0,
   });
 
   factory FoodItem.fromJson(Map<String, dynamic> json) {
@@ -29,6 +31,8 @@ class FoodItem {
       price: (json['price'] as num).toDouble(),
       imageUrl: json['image_url'] as String?,
       isAvailable: json['is_available'] as bool,
+      // Present on admin/inventory responses; defaulted for older payloads.
+      stock: (json['stock'] as num?)?.toInt() ?? 0,
     );
   }
 }

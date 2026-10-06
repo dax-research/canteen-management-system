@@ -40,7 +40,11 @@ class _SplashScreenState extends State<SplashScreen>
       if (!mounted) return;
     }
     if (!mounted) return;
-    context.go(auth.isAuthenticated ? AppPaths.home : AppPaths.login);
+    context.go(
+      auth.isAuthenticated
+          ? AppPaths.forRole(auth.role)
+          : AppPaths.login,
+    );
   }
 
   @override

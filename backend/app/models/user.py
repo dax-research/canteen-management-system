@@ -12,13 +12,11 @@ class UserRole(str, Enum):
     Application roles.
 
     CUSTOMER — normal canteen user (browse, cart, orders).
-    ADMIN    — canteen staff / administrator (manage menu, inventory, orders).
-
-    The STAFF role that existed in an earlier iteration is intentionally
-    removed.  Any previously-stored 'STAFF' rows should be promoted to
-    'ADMIN' via the migration in this task set.
+    STAFF    — staff member (manage orders and inventory).
+    ADMIN    — administrator (manage menu, categories, inventory and orders).
     """
     CUSTOMER = "CUSTOMER"
+    STAFF    = "STAFF"
     ADMIN    = "ADMIN"
 
 

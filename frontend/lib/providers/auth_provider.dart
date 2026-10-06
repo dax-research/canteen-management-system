@@ -1,5 +1,8 @@
 import 'package:flutter/foundation.dart';
+import '../models/user.dart';
 import '../services/auth_service.dart';
+
+export '../models/user.dart' show User, UserRole;
 
 /// Authentication state for the application.
 ///
@@ -7,34 +10,17 @@ import '../services/auth_service.dart';
 /// reactive state via [ChangeNotifier] so the widget tree (and
 /// the go_router redirect guard) can listen for auth changes.
 ///
-/// ⚠️  STATUS: DEFINED BUT NOT YET WIRED INTO main.dart
-///
-/// TO ACTIVATE in Step 2:
-///   1. Wrap [MyApp] with [MultiProvider] in main.dart:
-///
-///      runApp(
-///        MultiProvider(
-///          providers: [
-///            ChangeNotifierProvider(create: (_) => AuthProvider()..initialise()),
-///          ],
-///          child: const MyApp(),
-///        ),
-///      );
-///
-///   2. Switch [MyApp] to [MaterialApp.router] with [AppRouter.router].
-///   3. Add the redirect guard in [AppRouter] using
-///      `context.read<AuthProvider>().isAuthenticated`.
-///   4. Replace [AuthService] calls in screens with [AuthProvider] where
-///      it makes sense (login screen can still call [AuthService.login]
-///      directly and then call [AuthProvider.notifyAuthenticated]).
-///
-/// The existing screens call [AuthService] static methods directly.
-/// Those calls continue to work unchanged. [AuthProvider] is an
-/// additive layer — it does NOT remove or duplicate any API logic.
 class AuthProvider extends ChangeNotifier {
-  // ── State ───────────────────────────────────────────────────
+  static final ChangeNotifier navigationChanges = ChangeNotifier();
+
   bool _isAuthenticated = false;
   bool _isInitialising = true;
+  UserRole _role = UserRole.unknown;
+  User? _user;
+
+  AuthProvider() {
+    AuthService.onUnauthorized = _handleUnauthorized;
+  }
 
   // ── Public getters ──────────────────────────────────────────
   /// Whether a valid auth token is present in SharedPreferences.
@@ -44,44 +30,83 @@ class AuthProvider extends ChangeNotifier {
   /// completes). Use this to show a splash / loading state.
   bool get isInitialising => _isInitialising;
 
-  // ── Initialisation ──────────────────────────────────────────
+  /// The authenticated account's role.
+  UserRole get role => _role;
+  User? get user => _user;
 
-  /// Read the persisted token and update [isAuthenticated].
-  ///
-  /// Call once at app startup (from the [MultiProvider] create callback
-  /// or from [SplashScreen.initState]).
+  bool get isCustomer => _role.isCustomer;
+  bool get isStaff => _role.isStaff;
+  bool get isAdmin => _role.isAdmin;
+
   Future<void> initialise() async {
     _isInitialising = true;
-    notifyListeners();
-
-    _isAuthenticated = await AuthService.isAuthenticated();
-
-    _isInitialising = false;
-    notifyListeners();
+    _notify();
+    try {
+      _isAuthenticated = await AuthService.isAuthenticated();
+      if (_isAuthenticated) {
+        _user = await AuthService.getCachedUser();
+        _role = _user?.role ??
+            UserRole.fromString(await AuthService.getCachedRole());
+        if (_role == UserRole.unknown) {
+          await AuthService.clearLocalSession();
+          _isAuthenticated = false;
+          _user = null;
+        }
+      } else {
+        _role = UserRole.unknown;
+        _user = null;
+      }
+    } finally {
+      _isInitialising = false;
+      _notify();
+    }
   }
 
-  // ── Auth actions ────────────────────────────────────────────
-
-  /// Call after a successful [AuthService.login] to update reactive state.
-  ///
-  /// The actual API call stays in [AuthService] — this provider only
-  /// tracks the resulting state change.
-  void notifyAuthenticated() {
+  void notifyAuthenticated([User? user]) {
     _isAuthenticated = true;
-    notifyListeners();
+    _user = user;
+    _role = user?.role ?? UserRole.unknown;
+    _notify();
   }
 
-  /// Calls [AuthService.logout] (clears the token) then resets state.
   Future<void> logout() async {
     await AuthService.logout();
     _isAuthenticated = false;
-    notifyListeners();
+    _role = UserRole.unknown;
+    _user = null;
+    _notify();
   }
 
-  /// Refreshes the auth state from storage — useful after a deep-link
-  /// or when the token may have been revoked externally.
   Future<void> refresh() async {
     _isAuthenticated = await AuthService.isAuthenticated();
+    if (_isAuthenticated) {
+      _user = await AuthService.getCachedUser();
+      _role = _user?.role ??
+          UserRole.fromString(await AuthService.getCachedRole());
+    } else {
+      _role = UserRole.unknown;
+      _user = null;
+    }
+    _notify();
+  }
+
+  void _handleUnauthorized() {
+    _isAuthenticated = false;
+    _role = UserRole.unknown;
+    _user = null;
+    _notify();
+  }
+
+  void _notify() {
     notifyListeners();
+    navigationChanges.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    if (AuthService.onUnauthorized == _handleUnauthorized) {
+      AuthService.onUnauthorized = null;
+    }
+    super.dispose();
   }
 }

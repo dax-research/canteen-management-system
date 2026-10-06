@@ -24,4 +24,14 @@ class ApiConstants {
   static String get cartItems => '$baseUrl/cart/items';
 
   static String get orders => '$baseUrl/orders';
+  static String get staffOrders => '$baseUrl/orders/staff';
+  static String get inventory => '$baseUrl/inventory';
+
+  // ── Admin-only endpoints (backend returns 403 for non-admin tokens) ──────
+  static String get adminDashboard => '$baseUrl/admin/dashboard';
+  static String get adminUsers => '$baseUrl/admin/users';
+  static String get adminOrders => '$baseUrl/admin/orders';
+  static String get adminFoodItems => '$baseUrl/admin/food-items';
+  static String get adminCategories => '$baseUrl/admin/categories';
+  static String get adminInventory => inventory;
 }

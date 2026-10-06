@@ -5,6 +5,10 @@ class CategoryResponse(BaseModel):
     id: str
     name: str
     description: Optional[str] = None
+    # Exposed so the admin category screen can show and toggle availability.
+    # Defaults to True so a payload without it (e.g. from an older client)
+    # still validates.
+    is_active: bool = True
 
     model_config = ConfigDict(from_attributes=True)
 
