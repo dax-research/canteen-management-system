@@ -37,6 +37,9 @@ class Order {
   final String id;
   final String userId;
   final String status;
+  final String orderType;
+  final String? pickupTime;
+  final int? etaMinutes;
   final double totalAmount;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -46,14 +49,25 @@ class Order {
     required this.id,
     required this.userId,
     required this.status,
+    this.orderType = 'PICKUP',
+    this.pickupTime,
+    this.etaMinutes,
     required this.totalAmount,
     required this.createdAt,
     required this.updatedAt,
     required this.items,
   });
 
+  String get pickupText => pickupTime ?? 'ASAP';
+  String get etaText {
+    if (etaMinutes == null || etaMinutes! <= 0) {
+      return 'Pickup ready soon';
+    }
+    return 'ETA: ${etaMinutes} min';
+  }
+
   factory Order.fromJson(Map<String, dynamic> json) {
-    var itemsList = json['items'] as List;
+    var itemsList = json['items'] as List? ?? const [];
     List<OrderItem> parsedItems = itemsList
         .map((i) => OrderItem.fromJson(i as Map<String, dynamic>))
         .toList();
@@ -62,6 +76,9 @@ class Order {
       id: json['id'] as String,
       userId: json['user_id'] as String,
       status: json['status'] as String,
+      orderType: (json['order_type'] as String?) ?? 'PICKUP',
+      pickupTime: json['pickup_time'] as String?,
+      etaMinutes: json['eta_minutes'] as int?,
       totalAmount: (json['total_amount'] as num).toDouble(),
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),

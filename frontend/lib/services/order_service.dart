@@ -3,9 +3,18 @@ import '../models/order.dart';
 import 'api_service.dart';
 
 class OrderService {
-  static Future<Order> placeOrder() async {
+  static Future<Order> placeOrder({
+    String orderType = 'PICKUP',
+    String? pickupTime,
+    int? etaMinutes,
+  }) async {
     try {
-      final response = await ApiService.post(ApiConstants.orders, {});
+      final body = <String, dynamic>{
+        'order_type': orderType,
+        if (pickupTime != null) 'pickup_time': pickupTime,
+        if (etaMinutes != null) 'eta_minutes': etaMinutes,
+      };
+      final response = await ApiService.post(ApiConstants.orders, body);
       return Order.fromJson(response as Map<String, dynamic>);
     } catch (e) {
       rethrow;

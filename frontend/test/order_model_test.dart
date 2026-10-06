@@ -61,6 +61,9 @@ void main() {
         'id': 'order-1',
         'user_id': 'user-1',
         'status': 'PLACED',
+        'order_type': 'PICKUP',
+        'pickup_time': '1:30 PM',
+        'eta_minutes': 25,
         'total_amount': 40.0,
         'created_at': '2026-10-01T12:00:00Z',
         'updated_at': '2026-10-01T12:00:00Z',
@@ -93,6 +96,9 @@ void main() {
       expect(order.id, 'order-1');
       expect(order.userId, 'user-1');
       expect(order.status, 'PLACED');
+      expect(order.orderType, 'PICKUP');
+      expect(order.pickupTime, '1:30 PM');
+      expect(order.etaMinutes, 25);
       expect(order.totalAmount, 40.0);
       expect(order.items.length, 2);
       expect(order.items[0].itemName, 'Test Pizza');

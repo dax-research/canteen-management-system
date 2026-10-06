@@ -34,6 +34,19 @@ class Order(Base):
         default="PLACED",
         nullable=False,
     )
+    order_type: Mapped[str] = mapped_column(
+        String(20),
+        default="PICKUP",
+        nullable=False,
+    )
+    pickup_time: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+    )
+    eta_minutes: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
     total_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

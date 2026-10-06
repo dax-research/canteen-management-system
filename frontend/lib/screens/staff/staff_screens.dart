@@ -50,13 +50,18 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
               future: _orders,
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
-                  return _LoadError(message: _message(snapshot.error), retry: _refresh);
+                  return _LoadError(
+                    message: _message(snapshot.error),
+                    retry: _refresh,
+                  );
                 }
                 if (!snapshot.hasData) {
                   return const Center(
                     child: Padding(
                       padding: EdgeInsets.all(24),
-                      child: CircularProgressIndicator(color: AppColors.primary),
+                      child: CircularProgressIndicator(
+                        color: AppColors.primary,
+                      ),
                     ),
                   );
                 }
@@ -123,7 +128,10 @@ class _StaffOrdersScreenState extends State<StaffOrdersScreen> {
         future: _orders,
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return _LoadError(message: _message(snapshot.error), retry: _refresh);
+            return _LoadError(
+              message: _message(snapshot.error),
+              retry: _refresh,
+            );
           }
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
@@ -147,16 +155,21 @@ class _StaffOrdersScreenState extends State<StaffOrdersScreen> {
                   child: ListTile(
                     leading: CircleAvatar(
                       backgroundColor: AppColors.primaryLight,
-                      child: const Icon(Icons.receipt_long,
-                          color: AppColors.primaryDark),
+                      child: const Icon(
+                        Icons.receipt_long,
+                        color: AppColors.primaryDark,
+                      ),
                     ),
                     title: Text('Order ${_shortId(order.id)}'),
                     subtitle: Text(
-                      'Customer ${_shortId(order.userId)}  •  ${order.items.length} items  •  ${_money(order.totalAmount)}',
+                      'Customer ${_shortId(order.userId)}  •  ${order.items.length} items  •  ${_money(order.totalAmount)}  •  Pickup ${order.pickupText}',
                     ),
                     trailing: _StatusChip(status: order.status),
                     onTap: () => context.push(
-                      AppPaths.staffOrderDetail.replaceFirst(':orderId', order.id),
+                      AppPaths.staffOrderDetail.replaceFirst(
+                        ':orderId',
+                        order.id,
+                      ),
                     ),
                   ),
                 );
@@ -208,14 +221,16 @@ class _StaffOrderDetailsScreenState extends State<StaffOrderDetailsScreen> {
   Future<void> _setStatus(String status) async {
     setState(() => _updating = true);
     try {
-      final updated =
-          await StaffService.updateOrderStatus(widget.orderId, status);
+      final updated = await StaffService.updateOrderStatus(
+        widget.orderId,
+        status,
+      );
       if (mounted) setState(() => _order = updated);
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_message(error))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(_message(error))));
       }
     } finally {
       if (mounted) setState(() => _updating = false);
@@ -234,59 +249,81 @@ class _StaffOrderDetailsScreenState extends State<StaffOrderDetailsScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? _LoadError(message: _error!, retry: _load)
-              : order == null
-                  ? const _EmptyState(
-                      title: 'Order unavailable',
-                      message: 'This order could not be found.',
-                      icon: Icons.search_off_rounded,
-                    )
-                  : ListView(
-                      padding: const EdgeInsets.all(20),
-                      children: [
-                        _StatusChip(status: order.status),
-                        const SizedBox(height: 12),
-                        Text('Order ${_shortId(order.id)}',
-                            style: Theme.of(context).textTheme.titleLarge),
-                        Text('Customer ${_shortId(order.userId)}'),
-                        const SizedBox(height: 16),
-                        ...order.items.map(
-                          (item) => ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(item.itemName),
-                            subtitle: Text(
-                                '${item.quantity} × ${_money(item.unitPrice)}'),
-                            trailing: Text(_money(item.subtotal)),
-                          ),
-                        ),
-                        const Divider(),
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text('Total'),
-                          trailing: Text(_money(order.totalAmount)),
-                        ),
-                        const SizedBox(height: 20),
-                        if (next.isEmpty)
-                          const Text('This order is in a final status.')
-                        else ...[
-                          const Text('Update order status'),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: next
-                                .map(
-                                  (status) => FilledButton.tonal(
-                                    onPressed:
-                                        _updating ? null : () => _setStatus(status),
-                                    child: Text(_statusLabel(status)),
-                                  ),
-                                )
-                                .toList(),
-                          ),
-                        ],
-                      ],
+          ? _LoadError(message: _error!, retry: _load)
+          : order == null
+          ? const _EmptyState(
+              title: 'Order unavailable',
+              message: 'This order could not be found.',
+              icon: Icons.search_off_rounded,
+            )
+          : ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                _StatusChip(status: order.status),
+                const SizedBox(height: 12),
+                Text(
+                  'Order ${_shortId(order.id)}',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                Text('Customer ${_shortId(order.userId)}'),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryLight,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    'Pickup: ${order.pickupText}${order.etaMinutes != null ? ' • ETA ${order.etaMinutes} min' : ''}',
+                    style: const TextStyle(
+                      color: AppColors.primaryDark,
+                      fontWeight: FontWeight.w700,
                     ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ...order.items.map(
+                  (item) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(item.itemName),
+                    subtitle: Text(
+                      '${item.quantity} × ${_money(item.unitPrice)}',
+                    ),
+                    trailing: Text(_money(item.subtotal)),
+                  ),
+                ),
+                const Divider(),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Total'),
+                  trailing: Text(_money(order.totalAmount)),
+                ),
+                const SizedBox(height: 20),
+                if (next.isEmpty)
+                  const Text('This order is in a final status.')
+                else ...[
+                  const Text('Update order status'),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: next
+                        .map(
+                          (status) => FilledButton.tonal(
+                            onPressed: _updating
+                                ? null
+                                : () => _setStatus(status),
+                            child: Text(_statusLabel(status)),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ],
+              ],
+            ),
     );
   }
 }
@@ -384,9 +421,9 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
       await _load();
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_message(error))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(_message(error))));
       }
     }
   }
@@ -401,49 +438,49 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? _LoadError(message: _error!, retry: _load)
-              : _items.isEmpty
-                  ? const _EmptyState(
-                      title: 'No inventory items',
-                      message: 'Inventory data will appear here.',
-                      icon: Icons.inventory_2_outlined,
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _load,
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _items.length,
-                        itemBuilder: (context, index) {
-                          final item = _items[index];
-                          final status = item.stock == 0
-                              ? 'Out of stock'
-                              : item.isAvailable
-                                  ? 'Available'
-                                  : 'Unavailable';
-                          return Card(
-                            child: ListTile(
-                              title: Text(item.name),
-                              subtitle: Text('$status  •  Stock: ${item.stock}'),
-                              leading: Icon(
-                                item.stock == 0
-                                    ? Icons.remove_shopping_cart_outlined
-                                    : item.isAvailable
-                                        ? Icons.check_circle_outline
-                                        : Icons.block_outlined,
-                                color: item.stock == 0 || !item.isAvailable
-                                    ? AppColors.error
-                                    : AppColors.success,
-                              ),
-                              trailing: IconButton(
-                                tooltip: 'Update stock',
-                                onPressed: () => _editStock(item),
-                                icon: const Icon(Icons.edit_outlined),
-                              ),
-                            ),
-                          );
-                        },
+          ? _LoadError(message: _error!, retry: _load)
+          : _items.isEmpty
+          ? const _EmptyState(
+              title: 'No inventory items',
+              message: 'Inventory data will appear here.',
+              icon: Icons.inventory_2_outlined,
+            )
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: _items.length,
+                itemBuilder: (context, index) {
+                  final item = _items[index];
+                  final status = item.stock == 0
+                      ? 'Out of stock'
+                      : item.isAvailable
+                      ? 'Available'
+                      : 'Unavailable';
+                  return Card(
+                    child: ListTile(
+                      title: Text(item.name),
+                      subtitle: Text('$status  •  Stock: ${item.stock}'),
+                      leading: Icon(
+                        item.stock == 0
+                            ? Icons.remove_shopping_cart_outlined
+                            : item.isAvailable
+                            ? Icons.check_circle_outline
+                            : Icons.block_outlined,
+                        color: item.stock == 0 || !item.isAvailable
+                            ? AppColors.error
+                            : AppColors.success,
+                      ),
+                      trailing: IconButton(
+                        tooltip: 'Update stock',
+                        onPressed: () => _editStock(item),
+                        icon: const Icon(Icons.edit_outlined),
                       ),
                     ),
+                  );
+                },
+              ),
+            ),
     );
   }
 }
@@ -460,32 +497,34 @@ class _IntroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Card(
-        color: AppColors.espresso,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Row(
-            children: [
-              Icon(icon, color: AppColors.primary, size: 34),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title,
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 4),
-                    Text(subtitle,
-                        style: const TextStyle(color: Colors.white70)),
-                  ],
+    color: AppColors.espresso,
+    child: Padding(
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        children: [
+          Icon(icon, color: AppColors.primary, size: 34),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 4),
+                Text(subtitle, style: const TextStyle(color: Colors.white70)),
+              ],
+            ),
           ),
-        ),
-      );
+        ],
+      ),
+    ),
+  );
 }
 
 class _NavigationCard extends StatelessWidget {
@@ -502,14 +541,14 @@ class _NavigationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Card(
-        child: ListTile(
-          onTap: onTap,
-          leading: Icon(icon, color: AppColors.primaryDark),
-          title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-          subtitle: Text(subtitle),
-          trailing: const Icon(Icons.chevron_right_rounded),
-        ),
-      );
+    child: ListTile(
+      onTap: onTap,
+      leading: Icon(icon, color: AppColors.primaryDark),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+      subtitle: Text(subtitle),
+      trailing: const Icon(Icons.chevron_right_rounded),
+    ),
+  );
 }
 
 class _StatCard extends StatelessWidget {
@@ -524,14 +563,15 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Card(
-        child: ListTile(
-          leading: Icon(icon, color: AppColors.primaryDark),
-          title: Text(value,
-              style:
-                  const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
-          subtitle: Text(label),
-        ),
-      );
+    child: ListTile(
+      leading: Icon(icon, color: AppColors.primaryDark),
+      title: Text(
+        value,
+        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+      ),
+      subtitle: Text(label),
+    ),
+  );
 }
 
 class _StatusChip extends StatelessWidget {
@@ -540,10 +580,10 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Chip(
-        label: Text(_statusLabel(status)),
-        backgroundColor: AppColors.primaryLight,
-        side: BorderSide.none,
-      );
+    label: Text(_statusLabel(status)),
+    backgroundColor: AppColors.primaryLight,
+    side: BorderSide.none,
+  );
 }
 
 class _LoadError extends StatelessWidget {
@@ -553,24 +593,24 @@ class _LoadError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.error_outline, size: 40, color: AppColors.error),
-              const SizedBox(height: 10),
-              Text(message, textAlign: TextAlign.center),
-              const SizedBox(height: 14),
-              OutlinedButton.icon(
-                onPressed: retry,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
-              ),
-            ],
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.error_outline, size: 40, color: AppColors.error),
+          const SizedBox(height: 10),
+          Text(message, textAlign: TextAlign.center),
+          const SizedBox(height: 14),
+          OutlinedButton.icon(
+            onPressed: retry,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Retry'),
           ),
-        ),
-      );
+        ],
+      ),
+    ),
+  );
 }
 
 class _EmptyState extends StatelessWidget {
@@ -585,29 +625,29 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 48, color: AppColors.textHint),
-              const SizedBox(height: 12),
-              Text(title, style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 4),
-              Text(message, textAlign: TextAlign.center),
-            ],
-          ),
-        ),
-      );
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 48, color: AppColors.textHint),
+          const SizedBox(height: 12),
+          Text(title, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 4),
+          Text(message, textAlign: TextAlign.center),
+        ],
+      ),
+    ),
+  );
 }
 
 List<String> _allowedNext(String status) => switch (status.toUpperCase()) {
-      'PLACED' => ['ACCEPTED', 'CANCELLED'],
-      'ACCEPTED' => ['PREPARING', 'CANCELLED'],
-      'PREPARING' => ['READY', 'CANCELLED'],
-      'READY' => ['COMPLETED'],
-      _ => const [],
-    };
+  'PLACED' => ['ACCEPTED', 'CANCELLED'],
+  'ACCEPTED' => ['PREPARING', 'CANCELLED'],
+  'PREPARING' => ['READY', 'CANCELLED'],
+  'READY' => ['COMPLETED'],
+  _ => const [],
+};
 
 String _statusLabel(String status) =>
     status[0] + status.substring(1).toLowerCase().replaceAll('_', ' ');

@@ -11,7 +11,7 @@ from app.models.cart import Cart, CartItem
 from app.models.order import Order, OrderItem
 from app.models.user import User
 from app.models.food_item import FoodItem
-from app.schemas.order import OrderResponse, OrderStatusUpdate, OrderStatus
+from app.schemas.order import OrderCreate, OrderResponse, OrderStatusUpdate, OrderStatus
 
 VALID_TRANSITIONS = {
     "PLACED": {"ACCEPTED", "CANCELLED"},
@@ -25,8 +25,17 @@ VALID_TRANSITIONS = {
 router = APIRouter(prefix="/api/orders", tags=["orders"])
 
 
+def _default_pickup_time() -> str:
+    return "ASAP"
+
+
+def _default_eta_minutes(pickup_time: str | None) -> int:
+    return 15 if pickup_time is None or pickup_time.upper() == "ASAP" else 20
+
+
 @router.post("", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
 def place_order(
+    order_in: OrderCreate | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -39,6 +48,12 @@ def place_order(
 
     if not cart or not cart.items:
         raise HTTPException(status_code=400, detail="Cart is empty")
+
+    if order_in is None:
+        order_in = OrderCreate()
+
+    pickup_time = order_in.pickup_time or _default_pickup_time()
+    eta_minutes = order_in.eta_minutes or _default_eta_minutes(pickup_time)
 
     total_amount = Decimal("0.00")
     order_items = []
@@ -76,6 +91,9 @@ def place_order(
     order = Order(
         user_id=current_user.id,
         status="PLACED",
+        order_type=order_in.order_type,
+        pickup_time=pickup_time,
+        eta_minutes=eta_minutes,
         total_amount=total_amount,
         items=order_items,
     )

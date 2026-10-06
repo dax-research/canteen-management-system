@@ -67,6 +67,9 @@ class AdminOrderResponse(BaseModel):
     id: str
     user_id: str
     status: str
+    order_type: str = "PICKUP"
+    pickup_time: Optional[str] = None
+    eta_minutes: Optional[int] = None
     total_amount: float
     created_at: datetime
     updated_at: datetime

@@ -4,11 +4,18 @@ from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict
 
-from typing import Literal
+from typing import Literal, Optional
 
 OrderStatus = Literal[
     "PLACED", "ACCEPTED", "PREPARING", "READY", "COMPLETED", "CANCELLED"
 ]
+
+
+class OrderCreate(BaseModel):
+    order_type: Literal["PICKUP"] = "PICKUP"
+    pickup_time: Optional[str] = None
+    eta_minutes: Optional[int] = None
+
 
 class OrderStatusUpdate(BaseModel):
     status: OrderStatus
@@ -31,6 +38,9 @@ class OrderResponse(BaseModel):
     id: str
     user_id: str
     status: str
+    order_type: str = "PICKUP"
+    pickup_time: Optional[str] = None
+    eta_minutes: Optional[int] = None
     total_amount: float
     created_at: datetime
     updated_at: datetime
